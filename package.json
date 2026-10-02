@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "offline": "DEMO_MODE=offline node server.js",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "test": "node scripts/selftest.mjs"
   },
   "keywords": [],
   "author": "",
