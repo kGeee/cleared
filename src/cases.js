@@ -24,9 +24,12 @@ const SHORT = { remittance: 'Remittance', invoice: 'Invoice', manifest: 'Manifes
 const files = new Map(); // `${n}/${name}` -> Buffer
 let remitCache = null;
 
-const all = () => store.load('cases', {});
+// Case records carry a schema version; records from an older demo build are ignored (treated as new).
+const SCHEMA = 2;
+const all = () => Object.fromEntries(Object.entries(store.load('cases', {})).filter(([, c]) => c?.v === SCHEMA));
 const get = (n) => all()[n] || null;
 function put(n, c) {
+  c.v = SCHEMA;
   const s = all();
   s[n] = c;
   store.save('cases', s);
