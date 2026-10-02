@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cleared · Finance</title>
+  <link rel="icon" href="/mascot.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="wordmark">CLEARED</div>
+    <nav class="tabs">
+      <span class="tab disabled" title="Operations teammate: next on the roadmap">Operations</span>
+      <span class="tab disabled" title="Growth teammate: on the roadmap">Growth</span>
+      <span class="tab active">Finance</span>
+    </nav>
+    <div class="conn">
+      <div class="working"><small>CONNECTED</small><span id="workingIn">Ready</span></div>
+      <div class="chips" id="chips"></div>
+    </div>
+  </header>
+
+  <main class="desk">
+    <div class="window">
+      <div class="titlebar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="titletext">Fable Grove · Work desktop</span>
+        <img class="tb-mascot" src="/mascot.png" alt="" />
+      </div>
+      <div class="split">
+        <section class="source">
+          <div class="source-head" id="sourceHead"></div>
+          <div class="source-body" id="sourceBody"></div>
+          <div class="source-foot" id="sourceFoot" hidden></div>
+        </section>
+        <aside class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Cleared</div>
+              <div class="panel-sub" id="panelSub">Beside your work</div>
+            </div>
+            <div class="panel-right">
+              <span class="timer" id="timer" hidden></span>
+              <span class="panel-team">Finance</span>
+            </div>
+          </div>
+          <div class="feed" id="feed"></div>
+          <form class="composer" id="composer" autocomplete="off">
+            <input id="q" placeholder="Message Cleared…" />
+            <button type="submit" aria-label="Send">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </form>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <footer class="modebar">
+    <span id="modeBadge" class="badge"></span>
+    <span id="agentBadge" class="badge subtle"></span>
+    <span class="spacer"></span>
+    <button class="link" id="showConnect">Connections</button>
+    <button class="link" id="reset">Reset conversation</button>
+  </footer>
+
+  <div class="overlay" id="connect" hidden>
+    <div class="connect-card">
+      <div class="connect-left">
+        <img src="/mascot.png" class="connect-mascot" alt="" />
+        <div class="eyebrow">CLEARED · SETUP · ONE TIME</div>
+        <h1>Getting started takes one click.</h1>
+        <p>You approve access inside each app itself. Cleared reads what it needs, and nothing is sent or changed until you approve it here.</p>
+      </div>
+      <div class="connect-right" id="connectList"></div>
+    </div>
+  </div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
