@@ -1,0 +1,64 @@
+{
+  "brand": {
+    "name": "Fable Grove",
+    "legalName": "Fable Grove Foods",
+    "address": "1200 Orchard Way, Oakland, CA 94607",
+    "product": "Fable Grove product · case",
+    "unitPrice": 24
+  },
+  "customer": {
+    "name": "UNFI",
+    "billTo": "UNFI distribution center",
+    "deductionsDesk": "UNFI Supplier Deductions"
+  },
+  "remittance": {
+    "checkNumber": "7741",
+    "paymentDate": "2026-09-29",
+    "fileName": "UNFI_Payment_Advice_7741.pdf",
+    "emailSubject": "UNFI payment advice · Check 7741 · Invoices 2086, 2087, 2088"
+  },
+  "invoices": [
+    {
+      "docNumber": "2086",
+      "scenario": "missing_evidence",
+      "label": "Film scenario: POD has no accepted count",
+      "poNumber": "UNFI-PO-558120",
+      "txnDate": "2026-09-18",
+      "dueDate": "2026-10-18",
+      "shipDate": "2026-09-18",
+      "deliveryDate": "2026-09-20",
+      "qty": 120,
+      "pallets": 6,
+      "deduction": { "code": "SHT", "reason": "Shortage", "reference": "DED-55120", "cases": 10 },
+      "pod": { "acceptedCount": null, "receivedBy": "J. Ortega", "exceptions": "" }
+    },
+    {
+      "docNumber": "2087",
+      "scenario": "dispute",
+      "label": "POD proves full delivery: dispute",
+      "poNumber": "UNFI-PO-558377",
+      "txnDate": "2026-09-22",
+      "dueDate": "2026-10-22",
+      "shipDate": "2026-09-22",
+      "deliveryDate": "2026-09-24",
+      "qty": 80,
+      "pallets": 4,
+      "deduction": { "code": "SHT", "reason": "Shortage", "reference": "DED-55391", "cases": 6 },
+      "pod": { "acceptedCount": 80, "receivedBy": "M. Chen", "exceptions": "None" }
+    },
+    {
+      "docNumber": "2088",
+      "scenario": "valid",
+      "label": "Damage noted at dock: deduction is valid",
+      "poNumber": "UNFI-PO-558402",
+      "txnDate": "2026-09-24",
+      "dueDate": "2026-10-24",
+      "shipDate": "2026-09-24",
+      "deliveryDate": "2026-09-26",
+      "qty": 60,
+      "pallets": 3,
+      "deduction": { "code": "DMG", "reason": "Damaged / refused", "reference": "DED-55418", "cases": 4 },
+      "pod": { "acceptedCount": 56, "receivedBy": "R. Patel", "exceptions": "4 cases crushed on pallet 2, refused at dock" }
+    }
+  ]
+}
