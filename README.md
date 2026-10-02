@@ -1,25 +1,23 @@
 # Cleared · Finance teammate demo
 
-This is the Finance segment of the Cleared product film, built for real. Ask "Why were we short-paid on Invoice 2086?" and Cleared will:
+This is the Finance segment of the Cleared product film, built as an interactive workspace you click through.
 
-1. Pull the invoice and payment from **QuickBooks**: $2,880 billed, $2,640 paid.
-2. Find UNFI's payment advice in **Outlook** and read the attached PDF: deduction DED-55120, 10 cases short.
-3. Open the invoice packet in **OneDrive** and read the invoice, manifest and POD. The POD has no accepted count.
-4. Decide what the evidence supports. The verdict here is "Claim, not proven. Need UNFI's receiving count."
-5. Draft the evidence request with all four documents attached. **Nothing is sent until you click Approve.**
-6. On approval, send the email from Outlook, add a note to the QuickBooks invoice, and log who approved it.
+- **The queue.** Cleared reads UNFI's payment advice from **Outlook** and lists every short-paid invoice, with totals for withheld, waiting and recovered money, plus the dispute deadline.
+- **Investigate.** Click a short-pay, then **Investigate**. Four checks run as you watch:
+  1. **Billed vs. paid** from **QuickBooks**, shown as a bar with the short amount.
+  2. **What UNFI says**, read from the payment advice PDF: code, reference, cases × price.
+  3. **What the paperwork shows**, read from the invoice packet in **OneDrive**. A case trail runs Billed → Shipped → Accepted → Paid for, so you can see where the cases go missing. Click any document to open it next to what Cleared read from it.
+  4. **What should we do?** Cleared states what the evidence supports and recommends one of three actions. You can pick a different one.
+- **Act.** Edit the email, toggle attachments and click **Approve & send**. The email goes out from Outlook and a note is added to the invoice in QuickBooks. **Nothing is sent or written until you approve.**
+- **Follow up.** The case moves to *Waiting on UNFI*. When UNFI replies (in live mode, use **Check for replies**), Cleared reads the reply, marks the money recovered and updates the totals.
 
 There are three scenarios, so you can show judgment and not just automation:
 
-| Ask about | What the POD shows | What Cleared does |
+| Invoice | What the POD shows | Cleared recommends |
 |---|---|---|
-| **Invoice 2086** (the film) | Signed, but no accepted count | Requests the receiving count ($240) |
-| **Invoice 2087** | All 80 cases accepted | Disputes the $144 deduction |
-| **Invoice 2088** | 4 cases crushed and refused | Says the deduction is valid and recommends accepting it |
-
-You can also ask "Which short-pays need attention?" for the list view.
-
----
+| **2086** (the film) | Signed, but no accepted count | Request the receiving count ($240) |
+| **2087** | All 80 cases accepted | Dispute the $144 deduction |
+| **2088** | 4 cases crushed and refused | Accept it. The deduction is valid ($96) |
 
 ## 1. Run it now (offline rehearsal, 2 minutes)
 
@@ -51,7 +49,7 @@ Copy `.env.example` to `.env`, then fill in each section below.
 4. Use a dedicated demo mailbox. A free Outlook.com account works with these permissions. If you have no Entra directory, a free Azure account gives you one.
 
 ### Claude (2 min)
-Put an API key from https://console.anthropic.com into `ANTHROPIC_API_KEY`. Without a key, a scripted agent runs the same tools and the same deterministic math, so the demo still works.
+Put an API key from https://console.anthropic.com into `ANTHROPIC_API_KEY`. Claude reads the PDFs and drafts the emails. Without a key, a built-in parser and evidence-based templates do both, so the demo still works.
 
 ### Optional
 - `DEDUCTIONS_TO`: where approved emails go. Use a second inbox you control and have it open on your phone, so the room sees the email arrive.
@@ -73,34 +71,36 @@ The seed script is safe to re-run. It creates:
 
 ## 3. The 3-minute run of show
 
-1. **Play the film** (2:05). It sells the full vision: three teammates.
-2. "Everything you just saw in the Finance segment is live. Real QuickBooks, real Outlook, real OneDrive, sandbox data."
-3. Open **Connections** and show both apps connected, plus the permission list: "reads freely, writes only after you approve." *(Optional: disconnect and reconnect QuickBooks to show the real Intuit consent screen.)*
-4. Click **Why were we short-paid on Invoice 2086?** and narrate as the left pane switches QuickBooks → Outlook → OneDrive. Point at the timer.
-5. Edit one word in the draft to show the human is in control, then click **Approve follow-up + evidence pack**. Show the sent message, then the email arriving on your phone.
-6. "Not every deduction is worth fighting." Ask about **2088**. Cleared says it's valid and recommends accepting it.
-7. Close with the "what's live vs. next" slide.
+1. **Play the film** (2:05).
+2. "Everything in the Finance segment is live: real QuickBooks, Outlook and OneDrive, with sandbox data." Point at the totals strip: $480 withheld, 28 days to dispute.
+3. Click **Invoice 2086**, then **Investigate**. Narrate as each check fills in, and as the chips at the top light up QuickBooks, then Outlook, then OneDrive.
+4. Point at the case trail: "120 billed, 120 shipped, **?** accepted, 110 paid for. That question mark is the whole case." Click the POD to show the document next to what Cleared read.
+5. The recommendation is pre-selected. Click **Dispute** to show that the draft changes and why it's "Not advised". Switch back, edit a word, and click **Approve & send**. Show the email arriving on your phone.
+6. Reply from your phone ("Receiving shows 120 accepted, deduction reversed"), then click **Check for replies**. **$240 recovered** appears and the totals update. (Offline: **Simulate UNFI's reply**.)
+7. "Not every deduction is worth fighting." Open **2088**: the trail shows 4 cases refused, and Cleared recommends accepting it.
+8. Click **Reset demo** before the next run.
 
-**If anything breaks on stage:** stop the server and run `npm run offline`. It's the same UI and the same flow, with no network needed. Keep a screen recording as a final backup.
+**If anything breaks on stage:** stop the server and run `npm run offline`. It's the same UI and the same flow, with no network needed.
 
 ## 4. What's real, and what to say about it
 
-- **Real:** OAuth to QuickBooks and Microsoft 365, reading invoices, payments, mail, attachments and files, Claude reading the PDFs, sending through Outlook, writing a QuickBooks note, and the audit log in `data/audit.jsonl`.
-- **Deterministic by design:** the money math and the verdict (`src/assess.js`). The model explains and drafts. Code decides what the evidence supports. The server also rejects any draft that doesn't state the exact amount.
+- **Real:** OAuth to QuickBooks and Microsoft 365, reading invoices, payments, mail, attachments and files, Claude reading the PDFs, sending through Outlook, writing a QuickBooks note, reading the distributor's reply, and the audit log in `data/audit.jsonl`.
+- **Deterministic by design:** the money math, the verdict and the recommendation (`src/assess.js`, `src/cases.js`). Claude reads the PDFs and writes the drafts. Code decides what the evidence supports, and any draft that doesn't state the exact amount is rejected and rebuilt from the evidence.
 - **Sandbox data:** Fable Grove, UNFI and the documents are fictional. Say so.
 - **Not built:** UNFI's supplier portal (deductions arrive by email remittance here), the Operations and Growth teammates, and the other integrations in the film's grid.
 
 ## Project map
 
 ```
-server.js                 HTTP server, OAuth routes, NDJSON stream for the agent
-src/agent.js              Claude tool loop + scripted fallback, approval (the only place anything is sent or written)
+server.js                 HTTP server, OAuth routes, case API (investigate streams NDJSON)
+src/cases.js              Queue, investigation steps, options, drafts, approval, replies
 src/assess.js             Money math + verdict
 src/extract.js            Document reading (Claude PDF input, text parser fallback)
 src/connectors/           quickbooks.js, microsoft.js (live), offline.js (fixtures)
 scripts/seed.js           Loads the demo scenario into your accounts
+scripts/selftest.mjs      npm test: runs the live code paths against fake QuickBooks + Graph
 scripts/make_docs.py      Regenerates the PDFs from fixtures/scenarios.json
-public/                   UI (styled after the product film)
+public/                   The interactive workspace UI
 ```
 
-Tokens, seed state and the audit log live in `./data` (gitignored). Delete `data/quickbooks.json` or `data/microsoft.json` to force a fresh connection.
+Tokens, case state, seed state and the audit log live in `./data` (gitignored). Use **Reset demo** in the footer to clear the cases between rehearsals. Delete `data/quickbooks.json` or `data/microsoft.json` to force a fresh connection.

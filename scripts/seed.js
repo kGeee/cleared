@@ -164,7 +164,7 @@ async function seedMicrosoft() {
 try {
   if (!only || only === 'qbo') await seedQuickBooks();
   if (!only || only === 'ms') await seedMicrosoft();
-  console.log('\nDone. Ask Cleared: "Why were we short-paid on Invoice 2086?"');
+  console.log('\nDone. Open Cleared and click Invoice 2086 → Investigate.');
 } catch (e) {
   console.error('\nSeed failed:', e.message);
   process.exit(1);
