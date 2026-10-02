@@ -1,0 +1,21 @@
+{
+  "name": "cleared",
+  "version": "1.0.0",
+  "description": "Cleared POC: Finance teammate short-pay demo",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "offline": "DEMO_MODE=offline node server.js",
+    "seed": "node scripts/seed.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "dotenv": "^18.0.5",
+    "express": "^4.22.3",
+    "unpdf": "^1.8.1"
+  },
+  "type": "module"
+}
