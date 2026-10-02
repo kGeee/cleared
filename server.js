@@ -3,7 +3,8 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { ROOT, MODE, AGENT, config } from './src/config.js';
 import { quickbooks, microsoft } from './src/sources.js';
-import * as agent from './src/agent.js';
+import * as cases from './src/cases.js';
+import * as store from './src/store.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -11,11 +12,20 @@ app.use(express.static(path.join(ROOT, 'public')));
 
 const providers = { quickbooks, microsoft };
 const pendingStates = new Map();
+const connected = () => quickbooks.isConnected() && microsoft.isConnected();
+const wrap = (fn) => async (req, res) => {
+  try {
+    res.json(await fn(req, res));
+  } catch (e) {
+    console.error(e);
+    res.status(400).json({ error: e.message });
+  }
+};
 
 app.get('/api/status', (_req, res) => {
   res.json({
     mode: MODE,
-    agent: AGENT,
+    ai: AGENT === 'claude',
     model: AGENT === 'claude' ? config.anthropic.model : null,
     approver: config.approverName,
     connections: { quickbooks: quickbooks.info(), microsoft: microsoft.info() },
@@ -58,46 +68,52 @@ app.post('/auth/:provider/disconnect', async (req, res) => {
   res.json({ ok: true });
 });
 
-// ----- Agent -----
-app.post('/api/ask', async (req, res) => {
-  const question = String(req.body?.question || '').trim().slice(0, 500);
-  if (!question) return res.status(400).json({ error: 'Ask a question' });
-  if (!quickbooks.isConnected() || !microsoft.isConnected()) {
-    return res.status(409).json({ error: 'Connect QuickBooks and Microsoft 365 first.' });
-  }
+// ----- Cases -----
+app.use('/api/queue', (req, res, next) => (connected() ? next() : res.status(409).json({ error: 'Connect QuickBooks and Microsoft 365 first.' })));
+app.get('/api/queue', wrap(() => cases.queue()));
+app.get('/api/case/:n', wrap((req) => cases.getCase(req.params.n)));
+
+// Streams the four investigation steps as NDJSON so the workspace fills in live.
+app.post('/api/case/:n/investigate', async (req, res) => {
+  if (!connected()) return res.status(409).json({ error: 'Connect QuickBooks and Microsoft 365 first.' });
   res.setHeader('Content-Type', 'application/x-ndjson');
   res.setHeader('Cache-Control', 'no-cache');
   res.flushHeaders();
   const emit = (ev) => res.write(JSON.stringify(ev) + '\n');
-  await agent.ask(question, emit);
+  try {
+    await cases.investigate(req.params.n, emit, { pace: req.query.quick !== '1' });
+  } catch (e) {
+    console.error(e);
+    emit({ type: 'error', text: e.message });
+  }
   res.end();
 });
 
-app.post('/api/approve', async (req, res) => {
-  try {
-    const out = await agent.approve(String(req.body?.id || ''), { subject: req.body?.subject, body: req.body?.body });
-    res.json(out);
-  } catch (e) {
-    console.error(e);
-    res.status(400).json({ error: e.message });
-  }
-});
+app.post('/api/case/:n/draft', wrap((req) => cases.draft(req.params.n, req.body?.action)));
+app.post('/api/case/:n/approve', wrap((req) => cases.approve(req.params.n, req.body || {})));
+app.post('/api/case/:n/replies', wrap((req) => cases.checkReplies(req.params.n)));
+app.post('/api/case/:n/simulate-reply', wrap((req) => cases.simulateReply(req.params.n)));
 
 app.post('/api/reset', (_req, res) => {
-  agent.resetThread();
+  cases.reset();
+  if (MODE === 'offline') store.update('offline', { notes: {} });
   res.json({ ok: true });
 });
 
-app.get('/api/case/:n/file/:name', (req, res) => {
-  const bytes = agent.caseFile(req.params.n, req.params.name);
-  if (!bytes) return res.status(404).send('Not found');
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `inline; filename="${req.params.name.replace(/"/g, '')}"`);
-  res.send(bytes);
+app.get('/api/case/:n/file/:name', async (req, res) => {
+  try {
+    const bytes = await cases.file(req.params.n, req.params.name);
+    if (!bytes) return res.status(404).send('Not found');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${req.params.name.replace(/"/g, '')}"`);
+    res.send(bytes);
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
 });
 
 app.listen(config.port, () => {
   console.log(`\n  Cleared demo running at ${config.appUrl}`);
-  console.log(`  Mode:  ${MODE === 'live' ? 'LIVE (QuickBooks ' + config.quickbooks.environment + ' + Microsoft 365)' : 'OFFLINE rehearsal (fixtures, nothing is sent)'}`);
-  console.log(`  Agent: ${AGENT === 'claude' ? 'Claude (' + config.anthropic.model + ')' : 'scripted (set ANTHROPIC_API_KEY for Claude)'}\n`);
+  console.log(`  Mode: ${MODE === 'live' ? 'LIVE (QuickBooks ' + config.quickbooks.environment + ' + Microsoft 365)' : 'OFFLINE rehearsal (fixtures, nothing is sent)'}`);
+  console.log(`  AI:   ${AGENT === 'claude' ? 'Claude (' + config.anthropic.model + ') reads documents and drafts emails' : 'off (set ANTHROPIC_API_KEY); parser + templates used'}\n`);
 });
