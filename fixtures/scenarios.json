@@ -6,59 +6,131 @@
     "product": "Fable Grove product · case",
     "unitPrice": 24
   },
-  "customer": {
-    "name": "UNFI",
-    "billTo": "UNFI distribution center",
-    "deductionsDesk": "UNFI Supplier Deductions"
-  },
-  "remittance": {
-    "checkNumber": "7741",
-    "paymentDate": "2026-09-29",
-    "fileName": "UNFI_Payment_Advice_7741.pdf",
-    "emailSubject": "UNFI payment advice · Check 7741 · Invoices 2086, 2087, 2088"
-  },
+  "payers": [
+    {
+      "id": "unfi",
+      "name": "UNFI",
+      "billTo": "UNFI distribution center",
+      "windowDays": 30,
+      "deductionsEmail": "deductions@unfi.example",
+      "remittance": { "method": "Check", "number": "7741", "paymentDate": "2026-09-29", "fileName": "UNFI_Payment_Advice_7741.pdf", "from": "UNFI Accounts Payable", "fromAddress": "ap-remittance@unfi.example" }
+    },
+    {
+      "id": "kehe",
+      "name": "KeHE",
+      "billTo": "KeHE distribution center",
+      "windowDays": 30,
+      "deductionsEmail": "deductions@kehe.example",
+      "remittance": { "method": "EFT", "number": "30418", "paymentDate": "2026-09-10", "fileName": "KeHE_Payment_Advice_30418.pdf", "from": "KeHE Supplier Payments", "fromAddress": "supplier-payments@kehe.example" }
+    },
+    {
+      "id": "walmart",
+      "name": "Walmart",
+      "billTo": "Walmart regional DC",
+      "windowDays": 30,
+      "deductionsEmail": "supplier-disputes@walmart.example",
+      "remittance": { "method": "EFT", "number": "88231", "paymentDate": "2026-09-22", "fileName": "Walmart_Payment_Advice_88231.pdf", "from": "Walmart Supplier Payments", "fromAddress": "ap@walmart.example" }
+    },
+    {
+      "id": "maple",
+      "name": "Maple Market",
+      "billTo": "Maple Market",
+      "windowDays": 30,
+      "deductionsEmail": "ap@maplemarket.example",
+      "remittance": { "method": "Check", "number": "5512", "paymentDate": "2026-09-25", "fileName": "MapleMarket_Payment_Advice_5512.pdf", "from": "Maple Market Accounts Payable", "fromAddress": "ap@maplemarket.example" }
+    },
+    {
+      "id": "harbor",
+      "name": "Harbor Pantry",
+      "billTo": "Harbor Pantry",
+      "windowDays": 30,
+      "deductionsEmail": "ap@harborpantry.example",
+      "remittance": { "method": "Check", "number": "1187", "paymentDate": "2026-09-18", "fileName": "HarborPantry_Payment_Advice_1187.pdf", "from": "Harbor Pantry Accounts Payable", "fromAddress": "ap@harborpantry.example" }
+    }
+  ],
   "invoices": [
     {
-      "docNumber": "2086",
-      "scenario": "missing_evidence",
-      "label": "Film scenario: POD has no accepted count",
-      "poNumber": "UNFI-PO-558120",
-      "txnDate": "2026-09-18",
-      "dueDate": "2026-10-18",
-      "shipDate": "2026-09-18",
-      "deliveryDate": "2026-09-20",
-      "qty": 120,
-      "pallets": 6,
-      "deduction": { "code": "SHT", "reason": "Shortage", "reference": "DED-55120", "cases": 10 },
-      "pod": { "acceptedCount": null, "receivedBy": "J. Ortega", "exceptions": "" }
+      "docNumber": "2086", "payer": "unfi", "label": "Film scenario: POD has no accepted count",
+      "poNumber": "UNFI-PO-558120", "txnDate": "2026-09-18", "dueDate": "2026-10-18", "qty": 120, "rate": 24,
+      "deduction": { "code": "SHT", "ref": "DED-55120", "reason": "Shortage", "cases": 10, "amount": 240 },
+      "docs": {
+        "manifest": { "shipDate": "2026-09-18", "pallets": 6, "warehouses": [{ "name": "East", "cases": 120 }] },
+        "pods": [{ "location": "", "deliveryDate": "2026-09-20", "acceptedCount": null, "receivedBy": "J. Ortega", "exceptions": "" }]
+      }
     },
     {
-      "docNumber": "2087",
-      "scenario": "dispute",
-      "label": "POD proves full delivery: dispute",
-      "poNumber": "UNFI-PO-558377",
-      "txnDate": "2026-09-22",
-      "dueDate": "2026-10-22",
-      "shipDate": "2026-09-22",
-      "deliveryDate": "2026-09-24",
-      "qty": 80,
-      "pallets": 4,
-      "deduction": { "code": "SHT", "reason": "Shortage", "reference": "DED-55391", "cases": 6 },
-      "pod": { "acceptedCount": 80, "receivedBy": "M. Chen", "exceptions": "None" }
+      "docNumber": "2087", "payer": "unfi", "label": "POD proves full delivery",
+      "poNumber": "UNFI-PO-558377", "txnDate": "2026-09-22", "dueDate": "2026-10-22", "qty": 80, "rate": 24,
+      "deduction": { "code": "SHT", "ref": "DED-55391", "reason": "Shortage", "cases": 6, "amount": 144 },
+      "docs": {
+        "manifest": { "shipDate": "2026-09-22", "pallets": 4, "warehouses": [{ "name": "East", "cases": 80 }] },
+        "pods": [{ "location": "", "deliveryDate": "2026-09-24", "acceptedCount": 80, "receivedBy": "M. Chen", "exceptions": "None" }]
+      }
     },
     {
-      "docNumber": "2088",
-      "scenario": "valid",
-      "label": "Damage noted at dock: deduction is valid",
-      "poNumber": "UNFI-PO-558402",
-      "txnDate": "2026-09-24",
-      "dueDate": "2026-10-24",
-      "shipDate": "2026-09-24",
-      "deliveryDate": "2026-09-26",
-      "qty": 60,
-      "pallets": 3,
-      "deduction": { "code": "DMG", "reason": "Damaged / refused", "reference": "DED-55418", "cases": 4 },
-      "pod": { "acceptedCount": 56, "receivedBy": "R. Patel", "exceptions": "4 cases crushed on pallet 2, refused at dock" }
+      "docNumber": "2088", "payer": "unfi", "label": "Damage noted at dock: valid",
+      "poNumber": "UNFI-PO-558402", "txnDate": "2026-09-24", "dueDate": "2026-10-24", "qty": 60, "rate": 24,
+      "deduction": { "code": "DMG", "ref": "DED-55418", "reason": "Damaged / refused", "cases": 4, "amount": 96 },
+      "docs": {
+        "manifest": { "shipDate": "2026-09-24", "pallets": 3, "warehouses": [{ "name": "East", "cases": 60 }] },
+        "pods": [{ "location": "", "deliveryDate": "2026-09-26", "acceptedCount": 56, "receivedBy": "R. Patel", "exceptions": "4 cases crushed on pallet 2, refused at dock" }]
+      }
+    },
+    {
+      "docNumber": "2079", "payer": "kehe", "label": "Film's PO 1042: split shipment, only one POD matched",
+      "poNumber": "KEHE-PO-1042", "txnDate": "2026-08-21", "dueDate": "2026-09-20", "qty": 120, "rate": 24,
+      "deduction": { "code": "SHT", "ref": "KD-77310", "reason": "Shortage", "cases": 30, "amount": 720 },
+      "docs": {
+        "manifest": { "shipDate": "2026-08-21", "pallets": 6, "warehouses": [{ "name": "East", "cases": 90, "pallets": 5 }, { "name": "West", "cases": 30, "pallets": 1 }] },
+        "pods": [
+          { "location": "East", "deliveryDate": "2026-08-24", "acceptedCount": 90, "receivedBy": "L. Romero", "exceptions": "None" },
+          { "location": "West", "deliveryDate": "2026-08-25", "acceptedCount": 30, "receivedBy": "D. Okafor", "exceptions": "None" }
+        ]
+      }
+    },
+    {
+      "docNumber": "2081", "payer": "kehe", "label": "Paid at a new cost before it took effect",
+      "poNumber": "KEHE-PO-1057", "txnDate": "2026-08-25", "dueDate": "2026-09-24", "qty": 60, "rate": 24,
+      "deduction": { "code": "PRC", "ref": "KD-77344", "reason": "Price discrepancy", "cases": 60, "amount": 120 },
+      "docs": { "priceLetter": { "issued": "2026-08-01", "oldPrice": 24, "newPrice": 22, "effectiveDate": "2026-11-01" } }
+    },
+    {
+      "docNumber": "2083", "payer": "kehe", "label": "September promo chargeback matches the agreement",
+      "poNumber": "KEHE-PO-1063", "txnDate": "2026-08-28", "dueDate": "2026-09-27", "qty": 120, "rate": 24,
+      "deduction": { "code": "MCB", "ref": "KD-77361", "reason": "Promotion chargeback", "cases": 120, "amount": 180 },
+      "docs": { "promo": { "name": "September scan-down", "ratePerCase": 1.5, "maxCases": 200, "start": "2026-08-15", "end": "2026-09-15" } }
+    },
+    {
+      "docNumber": "2097", "payer": "walmart", "label": "OTIF fine, but Walmart's DC moved the appointment",
+      "poNumber": "WMT-PO-4471028", "txnDate": "2026-09-03", "dueDate": "2026-10-03", "qty": 200, "rate": 24,
+      "deduction": { "code": "OTIF", "ref": "OT-610284", "reason": "On-time in-full fine (3%)", "cases": null, "amount": 144 },
+      "docs": {
+        "po": { "mustArriveBy": "2026-09-08" },
+        "appointment": { "scheduled": "2026-09-08", "actual": "2026-09-10", "changedBy": "consignee", "reason": "Rescheduled by DC: receiving capacity" },
+        "pods": [{ "location": "", "deliveryDate": "2026-09-10", "acceptedCount": 200, "receivedBy": "T. Nguyen", "exceptions": "None" }]
+      }
+    },
+    {
+      "docNumber": "2099", "payer": "walmart", "label": "OTIF fine for a genuinely late carrier",
+      "poNumber": "WMT-PO-4471166", "txnDate": "2026-09-05", "dueDate": "2026-10-05", "qty": 100, "rate": 24,
+      "deduction": { "code": "OTIF", "ref": "OT-610391", "reason": "On-time in-full fine (3%)", "cases": null, "amount": 72 },
+      "docs": {
+        "po": { "mustArriveBy": "2026-09-12" },
+        "appointment": { "scheduled": "2026-09-12", "actual": "2026-09-14", "changedBy": "carrier", "reason": "Carrier missed appointment" },
+        "pods": [{ "location": "", "deliveryDate": "2026-09-14", "acceptedCount": 100, "receivedBy": "S. Ali", "exceptions": "None" }]
+      }
+    },
+    {
+      "docNumber": "2104", "payer": "maple", "label": "Launch slotting fee matches the signed agreement",
+      "poNumber": "MM-PO-2207", "txnDate": "2026-09-11", "dueDate": "2026-10-11", "qty": 40, "rate": 24,
+      "deduction": { "code": "SLOT", "ref": "MM-SL-118", "reason": "New item slotting", "cases": null, "amount": 750 },
+      "docs": { "slotting": { "amount": 750, "items": 1, "stores": 1, "signed": "2026-08-20", "note": "One-time new item fee for the Friday retail launch" } }
+    },
+    {
+      "docNumber": "2106", "payer": "harbor", "label": "Slotting deducted at double the agreed fee",
+      "poNumber": "HP-PO-0931", "txnDate": "2026-09-04", "dueDate": "2026-10-04", "qty": 60, "rate": 24,
+      "deduction": { "code": "SLOT", "ref": "HP-SL-042", "reason": "New item slotting", "cases": null, "amount": 1000 },
+      "docs": { "slotting": { "amount": 500, "items": 1, "stores": 1, "signed": "2026-08-18", "note": "One-time new item fee for the Friday retail launch" } }
     }
   ]
 }
