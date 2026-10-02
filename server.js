@@ -100,6 +100,18 @@ app.post('/api/reset', (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/remit/:name', async (req, res) => {
+  try {
+    const r = await cases.remitFile(req.params.name);
+    if (!r) return res.status(404).send('Not found');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${req.params.name.replace(/"/g, '')}"`);
+    res.send(r.bytes);
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
+});
+
 app.get('/api/case/:n/file/:name', async (req, res) => {
   try {
     const bytes = await cases.file(req.params.n, req.params.name);

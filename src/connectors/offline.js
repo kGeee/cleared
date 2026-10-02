@@ -1,21 +1,16 @@
 // Offline rehearsal connectors. Same interface as the live QuickBooks and Microsoft connectors,
 // backed by fixtures/scenarios.json and the PDFs in fixtures/docs. Nothing leaves your machine.
-import fs from 'node:fs';
-import path from 'node:path';
-import { SCENARIOS, DOCS_DIR, round2 } from '../config.js';
+import { round2 } from '../config.js';
 import * as store from '../store.js';
+import { brand, payers, payerById, invoiceByNumber, gross, paid, remitSubject, packetFiles, docBytes } from '../scenario.js';
 
-const { brand, customer, remittance, invoices } = SCENARIOS;
 const sent = [];
-
 function state() {
   return store.load('offline', { quickbooks: false, microsoft: false, notes: {} });
 }
 function setState(patch) {
   store.save('offline', { ...state(), ...patch });
 }
-
-const scenario = (n) => invoices.find((i) => i.docNumber === String(n));
 
 export const quickbooks = {
   isConnected: () => state().quickbooks,
@@ -28,40 +23,43 @@ export const quickbooks = {
     setState({ quickbooks: false });
   },
   async getInvoice(n) {
-    const s = scenario(n);
+    const s = invoiceByNumber(n);
     if (!s) return null;
-    const total = s.qty * brand.unitPrice;
-    const paid = total - s.deduction.cases * brand.unitPrice;
+    const p = payerById(s.payer);
     return {
       id: `offline-${s.docNumber}`,
       docNumber: s.docNumber,
-      customer: customer.name,
-      customerId: 'offline-unfi',
+      customer: p.name,
+      customerId: `offline-${p.id}`,
       txnDate: s.txnDate,
       dueDate: s.dueDate,
       terms: 'Net 30',
       poNumber: s.poNumber,
-      lines: [{ description: brand.product, qty: s.qty, rate: brand.unitPrice, amount: total }],
-      total,
-      balance: round2(total - paid),
+      lines: [{ description: brand.product, qty: s.qty, rate: s.rate, amount: gross(s) }],
+      total: gross(s),
+      balance: round2(gross(s) - paid(s)),
       status: 'Open',
       privateNote: state().notes?.[s.docNumber] || '',
     };
   },
   async getPayments(invoice) {
-    const s = scenario(invoice.docNumber);
-    const applied = s.qty * brand.unitPrice - s.deduction.cases * brand.unitPrice;
-    return {
-      payments: [{ id: 'offline-pmt-7741', date: remittance.paymentDate, reference: remittance.checkNumber, applied, memo: '' }],
-      totalPaid: applied,
-    };
+    const s = invoiceByNumber(invoice.docNumber);
+    const r = payerById(s.payer).remittance;
+    return { payments: [{ id: `offline-pmt-${r.number}`, date: r.paymentDate, reference: `${r.method === 'Check' ? '' : 'EFT '}${r.number}`, applied: paid(s), memo: '' }], totalPaid: paid(s) };
   },
   async addNote(invoice, note) {
-    const notes = { ...(state().notes || {}), [invoice.docNumber]: note };
-    setState({ notes });
+    setState({ notes: { ...(state().notes || {}), [invoice.docNumber]: note } });
     return true;
   },
 };
+
+function remitFor(p) {
+  const r = p.remittance;
+  return {
+    message: { id: `offline-remit-${p.id}`, subject: remitSubject(p), from: r.from, fromAddress: r.fromAddress, received: `${r.paymentDate}T16:04:00Z`, preview: `Payment advice for ${r.method} ${r.number}. Remittance detail attached.` },
+    attachment: { name: r.fileName, bytes: docBytes(r.fileName) },
+  };
+}
 
 export const microsoft = {
   isConnected: () => state().microsoft,
@@ -74,28 +72,20 @@ export const microsoft = {
     setState({ microsoft: false });
   },
   myEmail: () => 'ar@fablegrove.example',
+  async listRemittances() {
+    return payers.map(remitFor);
+  },
   async findRemittance(n) {
-    if (!scenario(n) && !/advice|remit/i.test(String(n))) return null;
-    return {
-      message: {
-        id: 'offline-remit-7741',
-        subject: remittance.emailSubject,
-        from: 'UNFI Accounts Payable',
-        fromAddress: 'ap-remittance@unfi.example',
-        received: `${remittance.paymentDate}T16:04:00Z`,
-        preview: `Payment advice for check ${remittance.checkNumber}. Remittance detail attached.`,
-      },
-      attachment: { name: remittance.fileName, bytes: fs.readFileSync(path.join(DOCS_DIR, remittance.fileName)) },
-    };
+    const s = invoiceByNumber(n);
+    return s ? remitFor(payerById(s.payer)) : null;
   },
   async listPacket(n) {
     const folder = `Cleared Demo/Invoice ${n} packet`;
-    if (!scenario(n)) return { folder, files: [] };
-    const files = ['Invoice', 'Manifest', 'POD'].map((k) => ({ id: `offline:${k}_${n}.pdf`, name: `${k}_${n}.pdf` }));
-    return { folder, files };
+    if (!invoiceByNumber(n)) return { folder, files: [] };
+    return { folder, files: packetFiles(n).map((name) => ({ id: `offline:${name}`, name })) };
   },
   async downloadFile(id) {
-    return fs.readFileSync(path.join(DOCS_DIR, id.replace(/^offline:/, '')));
+    return docBytes(id.replace(/^offline:/, ''));
   },
   async findReply() {
     return null; // offline rehearsal uses "Simulate reply" instead
@@ -104,5 +94,8 @@ export const microsoft = {
     const msg = { id: `offline-sent-${sent.length + 1}`, sentAt: new Date().toISOString(), to, subject, html, attachments: attachments.map((a) => a.name) };
     sent.push(msg);
     return { id: msg.id, sentAt: msg.sentAt, webLink: null };
+  },
+  deductionsEmailFor(customer) {
+    return payers.find((p) => p.name === customer)?.deductionsEmail || 'deductions@example.com';
   },
 };

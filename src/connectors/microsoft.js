@@ -108,29 +108,54 @@ export function myEmail() {
 const packetPath = (invoiceNumber) => `${config.microsoft.packetRoot}/Invoice ${invoiceNumber} packet`;
 const encPath = (p) => p.split('/').map(encodeURIComponent).join('/');
 
-// Outlook: find the payment advice that mentions this invoice and pull its PDF attachment.
-export async function findRemittance(invoiceNumber) {
-  const search = encodeURIComponent(`"${invoiceNumber}"`);
-  const r = await graph(
-    `/me/messages?$search=${search}&$top=15&$select=id,subject,from,receivedDateTime,hasAttachments,bodyPreview,parentFolderId`,
-  );
-  // Match on subject only, so Cleared's own follow-ups (which mention "payment advice" in the body) never count.
-  const candidates = (r.value || []).filter((m) => m.hasAttachments && /(remittance|payment advice)/i.test(m.subject || ''));
-  const msg = candidates[0];
-  if (!msg) return null;
+// Outlook: payment advices are emails whose subject says "payment advice" or "remittance", with a PDF attached.
+async function toRemittance(msg) {
   const att = await graph(`/me/messages/${msg.id}/attachments`);
   const pdf = (att.value || []).find((a) => /pdf/i.test(a.contentType || '') || /\.pdf$/i.test(a.name || ''));
   return {
     message: {
       id: msg.id,
       subject: msg.subject,
-      from: msg.from?.emailAddress?.name || msg.from?.emailAddress?.address || 'UNFI',
+      from: msg.from?.emailAddress?.name || msg.from?.emailAddress?.address || 'Payer',
       fromAddress: msg.from?.emailAddress?.address || '',
       received: msg.receivedDateTime,
       preview: msg.bodyPreview,
     },
     attachment: pdf ? { name: pdf.name, bytes: Buffer.from(pdf.contentBytes, 'base64') } : null,
   };
+}
+
+async function searchRemittances(term) {
+  const search = encodeURIComponent(`"${term}"`);
+  const r = await graph(`/me/messages?$search=${search}&$top=50&$select=id,subject,from,receivedDateTime,hasAttachments,bodyPreview`);
+  // Match on subject only, so Cleared's own follow-ups (which mention "payment advice" in the body) never count.
+  return (r.value || []).filter((m) => m.hasAttachments && /(remittance|payment advice)/i.test(m.subject || ''));
+}
+
+// Every payment advice in the mailbox (one per payer / payment), newest first, de-duplicated.
+export async function listRemittances() {
+  const seen = new Set();
+  const out = [];
+  const msgs = (await searchRemittances('payment advice')).sort((a, b) => new Date(b.receivedDateTime) - new Date(a.receivedDateTime));
+  for (const m of msgs) {
+    const key = m.subject.trim().toLowerCase();
+    if (seen.has(key)) continue; // a self-sent seed email appears in Inbox and Sent Items
+    seen.add(key);
+    const r = await toRemittance(m);
+    if (r.attachment) out.push(r);
+  }
+  return out;
+}
+
+// The payment advice that covers one invoice.
+export async function findRemittance(invoiceNumber) {
+  const msgs = await searchRemittances(String(invoiceNumber));
+  const msg = msgs.find((m) => (m.subject || '').includes(String(invoiceNumber))) || msgs[0];
+  return msg ? toRemittance(msg) : null;
+}
+
+export function deductionsEmailFor() {
+  return null; // live mode sends to DEDUCTIONS_TO or your own address
 }
 
 // Outlook: find the distributor's reply to a follow-up Cleared sent (newest "RE:" after the send time).
