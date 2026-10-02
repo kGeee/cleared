@@ -12,74 +12,80 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="wordmark">CLEARED</div>
+    <div class="brand"><img src="/mascot.png" alt="" /><span>CLEARED</span></div>
     <nav class="tabs">
-      <span class="tab disabled" title="Operations teammate: next on the roadmap">Operations</span>
-      <span class="tab disabled" title="Growth teammate: on the roadmap">Growth</span>
+      <span class="tab soon" title="Operations teammate: on the roadmap">Operations</span>
+      <span class="tab soon" title="Growth teammate: on the roadmap">Growth</span>
       <span class="tab active">Finance</span>
     </nav>
+    <form class="jump" id="jump" autocomplete="off">
+      <svg viewBox="0 0 24 24" width="15" height="15"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="jumpInput" placeholder="Jump to invoice…" />
+    </form>
     <div class="conn">
       <div class="working"><small>CONNECTED</small><span id="workingIn">Ready</span></div>
       <div class="chips" id="chips"></div>
     </div>
   </header>
 
-  <main class="desk">
-    <div class="window">
-      <div class="titlebar">
-        <span class="dots"><i></i><i></i><i></i></span>
-        <span class="titletext">Fable Grove · Work desktop</span>
-        <img class="tb-mascot" src="/mascot.png" alt="" />
+  <section class="kpis" id="kpis"></section>
+
+  <main class="layout">
+    <aside class="queue">
+      <div class="queue-head">
+        <div>
+          <h2>Short-pays</h2>
+          <button class="srclink" id="srcLink" hidden></button>
+        </div>
+        <button class="ghost" id="checkAll" title="Investigate every new short-pay">Check all</button>
       </div>
-      <div class="split">
-        <section class="source">
-          <div class="source-head" id="sourceHead"></div>
-          <div class="source-body" id="sourceBody"></div>
-          <div class="source-foot" id="sourceFoot" hidden></div>
-        </section>
-        <aside class="panel">
-          <div class="panel-head">
-            <div>
-              <div class="panel-title">Cleared</div>
-              <div class="panel-sub" id="panelSub">Beside your work</div>
-            </div>
-            <div class="panel-right">
-              <span class="timer" id="timer" hidden></span>
-              <span class="panel-team">Finance</span>
-            </div>
-          </div>
-          <div class="feed" id="feed"></div>
-          <form class="composer" id="composer" autocomplete="off">
-            <input id="q" placeholder="Message Cleared…" />
-            <button type="submit" aria-label="Send">
-              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-          </form>
-        </aside>
+      <div class="filters" id="filters">
+        <button data-f="all" class="sel">All</button>
+        <button data-f="review">To review</button>
+        <button data-f="waiting">Waiting</button>
+        <button data-f="closed">Closed</button>
       </div>
-    </div>
+      <div class="rows" id="rows"></div>
+    </aside>
+
+    <section class="work" id="work"></section>
   </main>
 
   <footer class="modebar">
     <span id="modeBadge" class="badge"></span>
-    <span id="agentBadge" class="badge subtle"></span>
+    <span id="aiBadge" class="badge subtle"></span>
     <span class="spacer"></span>
     <button class="link" id="showConnect">Connections</button>
-    <button class="link" id="reset">Reset conversation</button>
+    <button class="link" id="reset">Reset demo</button>
   </footer>
+
+  <div class="drawer" id="drawer" hidden>
+    <div class="drawer-scrim" data-close></div>
+    <div class="drawer-panel" role="dialog" aria-modal="true" aria-label="Document">
+      <div class="drawer-head">
+        <div><div class="eyebrow" id="dEyebrow"></div><h3 id="dTitle"></h3></div>
+        <div class="drawer-actions"><a id="dOpen" class="ghost" target="_blank">Open PDF</a><button class="x" data-close aria-label="Close">✕</button></div>
+      </div>
+      <div class="drawer-body">
+        <iframe id="dFrame" title="Document preview"></iframe>
+        <div class="read" id="dRead"></div>
+      </div>
+    </div>
+  </div>
 
   <div class="overlay" id="connect" hidden>
     <div class="connect-card">
       <div class="connect-left">
         <img src="/mascot.png" class="connect-mascot" alt="" />
-        <div class="eyebrow">CLEARED · SETUP · ONE TIME</div>
+        <div class="eyebrow light">CLEARED · SETUP · ONE TIME</div>
         <h1>Getting started takes one click.</h1>
-        <p>You approve access inside each app itself. Cleared reads what it needs, and nothing is sent or changed until you approve it here.</p>
+        <p>You approve access inside each app itself. Cleared reads what it needs, and nothing is sent or changed until you approve it.</p>
       </div>
       <div class="connect-right" id="connectList"></div>
     </div>
   </div>
 
+  <div class="toasts" id="toasts"></div>
   <script src="/app.js" type="module"></script>
 </body>
 </html>
