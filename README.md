@@ -9,15 +9,24 @@ This is the Finance segment of the Cleared product film, built as an interactive
   3. **What the paperwork shows**, read from the invoice packet in **OneDrive**. A case trail runs Billed → Shipped → Accepted → Paid for, so you can see where the cases go missing. Click any document to open it next to what Cleared read from it.
   4. **What should we do?** Cleared states what the evidence supports and recommends one of three actions. You can pick a different one.
 - **Act.** Edit the email, toggle attachments and click **Approve & send**. The email goes out from Outlook and a note is added to the invoice in QuickBooks. **Nothing is sent or written until you approve.**
-- **Follow up.** The case moves to *Waiting on UNFI*. When UNFI replies (in live mode, use **Check for replies**), Cleared reads the reply, marks the money recovered and updates the totals.
+- **Follow up.** The case moves to *Waiting on* the payer. When they reply (in live mode, use **Check for replies**), Cleared reads the reply, marks the money recovered and updates the totals.
 
-There are three scenarios, so you can show judgment and not just automation:
+There are 10 short-pays across 5 payers, drawn from the product film. They cover six deduction types, so you can show judgment and not just automation:
 
-| Invoice | What the POD shows | Cleared recommends |
-|---|---|---|
-| **2086** (the film) | Signed, but no accepted count | Request the receiving count ($240) |
-| **2087** | All 80 cases accepted | Dispute the $144 deduction |
-| **2088** | 4 cases crushed and refused | Accept it. The deduction is valid ($96) |
+| Invoice | Payer | Deduction | What the evidence shows | Cleared recommends |
+|---|---|---|---|---|
+| **2086** (the film) | UNFI | Shortage, 10 cases, $240 | POD signed, no accepted count | Request the receiving count |
+| **2087** | UNFI | Shortage, 6 cases, $144 | POD: all 80 accepted | Dispute $144 |
+| **2088** | UNFI | Damage, 4 cases, $96 | POD: 4 crushed, refused | Accept (valid) |
+| **2079** (film's PO 1042) | KeHE | Shortage, 30 cases, $720 | Split shipment: East 90 + West 30 PODs; KeHE only matched East | Dispute $720 |
+| **2081** | KeHE | Price, $120 | Paid the new $22 cost; it starts Nov 1, invoice is Aug 25 | Dispute $120 |
+| **2083** | KeHE | Promo chargeback, $180 | Matches $1.50 × 120 cases in the agreement | Accept (valid) |
+| **2097** | Walmart | OTIF fine (the film's 3%), $144 | Walmart's DC moved the appointment; 200/200 accepted | Dispute the fine |
+| **2099** | Walmart | OTIF fine, $72 | Carrier missed the appointment, 2 days late | Accept (pursue the carrier) |
+| **2104** | Maple Market (film's launch) | Slotting, $750 | Matches the signed agreement | Accept (valid) |
+| **2106** | Harbor Pantry (film's launch) | Slotting, $1,000 | Agreement says $500 | Dispute $500 |
+
+In total, $3,466 is withheld across 5 payment advices. KeHE's dispute window closes first, in 9 days, so it's highlighted.
 
 ## 1. Run it now (offline rehearsal, 2 minutes)
 
@@ -60,25 +69,26 @@ Put an API key from https://console.anthropic.com into `ANTHROPIC_API_KEY`. Clau
 npm start                # open http://localhost:3000 and Connect both apps
 npm run seed             # loads the film's data into your QuickBooks sandbox, OneDrive and Outlook
 ```
-Wait about a minute after seeding. Outlook search needs time to index the remittance email. Then ask about Invoice 2086.
+Wait a minute or two after seeding. Outlook search needs time to index the payment advice emails. Then open Cleared.
 
 The seed script is safe to re-run. It creates:
-- **QuickBooks:** customer UNFI, invoices 2086/2087/2088 for Fable Grove product · case at $24, and one payment, check 7741 for $5,760, applied net of deductions.
-- **OneDrive:** `Cleared Demo/Invoice 2086 packet/` (Invoice, Manifest, POD), plus the same for 2087 and 2088.
-- **Outlook:** the UNFI payment advice email with the remittance PDF attached. It's sent to yourself, so the sender shows as you.
+- **QuickBooks:** 5 customers (UNFI, KeHE, Walmart, Maple Market, Harbor Pantry), 10 invoices, and one payment per payer, applied net of deductions.
+- **OneDrive:** `Cleared Demo/Invoice <n> packet/` for each invoice. Depending on the type, it holds invoices, manifests, PODs, purchase orders, appointment records, cost change notices, promotion and slotting agreements: 29 files in all.
+- **Outlook:** 5 payment advice emails, one per payer, each with its remittance PDF attached. They're sent to yourself, so the sender shows as you.
 
 ---
 
 ## 3. The 3-minute run of show
 
 1. **Play the film** (2:05).
-2. "Everything in the Finance segment is live: real QuickBooks, Outlook and OneDrive, with sandbox data." Point at the totals strip: $480 withheld, 28 days to dispute.
+2. "Everything in the Finance segment is live: real QuickBooks, Outlook and OneDrive, with sandbox data." Point at the totals strip: $3,466 withheld by five payers, and KeHE's window closes in 9 days.
 3. Click **Invoice 2086**, then **Investigate**. Narrate as each check fills in, and as the chips at the top light up QuickBooks, then Outlook, then OneDrive.
 4. Point at the case trail: "120 billed, 120 shipped, **?** accepted, 110 paid for. That question mark is the whole case." Click the POD to show the document next to what Cleared read.
 5. The recommendation is pre-selected. Click **Dispute** to show that the draft changes and why it's "Not advised". Switch back, edit a word, and click **Approve & send**. Show the email arriving on your phone.
 6. Reply from your phone ("Receiving shows 120 accepted, deduction reversed"), then click **Check for replies**. **$240 recovered** appears and the totals update. (Offline: **Simulate UNFI's reply**.)
-7. "Not every deduction is worth fighting." Open **2088**: the trail shows 4 cases refused, and Cleared recommends accepting it.
-8. Click **Reset demo** before the next run.
+7. "Here's the film's split shipment." Open **KeHE 2079**: two PODs, East 90 + West 30, and KeHE only matched East. Then show **Walmart 2097**: the OTIF fine is only there because Walmart's own DC moved the appointment.
+8. "Not every deduction is worth fighting." Open **2099** or **2104**: the carrier really was late, or the slotting fee matches the agreement, so Cleared recommends accepting it.
+9. Click **Reset demo** before the next run. **Check all** runs every case at once, if you want to show the whole queue triaged in seconds.
 
 **If anything breaks on stage:** stop the server and run `npm run offline`. It's the same UI and the same flow, with no network needed.
 
@@ -94,8 +104,9 @@ The seed script is safe to re-run. It creates:
 ```
 server.js                 HTTP server, OAuth routes, case API (investigate streams NDJSON)
 src/cases.js              Queue, investigation steps, options, drafts, approval, replies
-src/assess.js             Money math + verdict
-src/extract.js            Document reading (Claude PDF input, text parser fallback)
+src/assess.js             Per-deduction-type rules: money math, verdict, evidence trail, email facts
+src/scenario.js           Helpers over fixtures/scenarios.json (offline mode + seed)
+src/extract.js            Reads 9 document kinds (Claude PDF input, text parser fallback)
 src/connectors/           quickbooks.js, microsoft.js (live), offline.js (fixtures)
 scripts/seed.js           Loads the demo scenario into your accounts
 scripts/selftest.mjs      npm test: runs the live code paths against fake QuickBooks + Graph

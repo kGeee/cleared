@@ -89,37 +89,44 @@ try {
   await import(ROOT + '/scripts/seed.js');
   await import(ROOT + '/scripts/seed.js?again'); // idempotency
   process.exit = realExit;
-  check(db.Invoice.length === 3 && db.Payment.length === 1, `seed idempotent: ${db.Invoice.length} invoices, ${db.Payment.length} payment`);
-  check(db.Invoice.find((i) => i.DocNumber === '2086')?.Balance === 240, 'invoice 2086 balance 240');
-  check(files.size === 9 && mail.length === 1, `uploaded ${files.size} files, ${mail.length} remittance email`);
+  check(db.Invoice.length === 10 && db.Payment.length === 5 && db.Customer.length === 5, `seed idempotent: ${db.Customer.length} customers, ${db.Invoice.length} invoices, ${db.Payment.length} payments`);
+  check(db.Invoice.find((i) => i.DocNumber === '2079')?.Balance === 720, 'invoice 2079 balance 720');
+  check(files.size === 34 - 5 && mail.length === 5, `uploaded ${files.size} packet files, ${mail.length} payment advice emails`);
 
   const cases = await import(ROOT + '/src/cases.js');
   cases.reset();
   const q = await cases.queue();
-  check(q.rows.length === 3 && q.totals.withheld === 480, `queue: ${q.rows.length} rows, $${q.totals.withheld} withheld`);
-  const expect = { '2086': ['request_evidence', 'request'], '2087': ['dispute', 'dispute'], '2088': ['valid', 'accept'] };
-  for (const [n, [verdict, action]] of Object.entries(expect)) {
+  check(q.rows.length === 10 && q.totals.withheld === 3466 && q.payers.length === 5, `queue: ${q.rows.length} rows from ${q.payers.length} payers, $${q.totals.withheld} withheld`);
+  const expect = {
+    2086: ['request_evidence', 'request', 240], 2087: ['dispute', 'dispute', 144], 2088: ['valid', 'accept', 0],
+    2079: ['dispute', 'dispute', 720], 2081: ['dispute', 'dispute', 120], 2083: ['valid', 'accept', 0],
+    2097: ['dispute', 'dispute', 144], 2099: ['valid', 'accept', 0], 2104: ['valid', 'accept', 0], 2106: ['dispute', 'dispute', 500],
+  };
+  for (const [n, [verdict, action, amount]] of Object.entries(expect)) {
     const ev = [];
     const c = await cases.investigate(n, (e) => ev.push(e), { pace: false });
-    check(c.assessment.verdict === verdict && ev.filter((e) => e.type === 'step' && e.state === 'done').length === 4, `${n}: verdict ${c.assessment.verdict}, recommended ${c.options.find((o) => o.strength === 'recommended').id}`);
+    const rec = c.options.find((o) => o.strength === 'recommended').id;
+    check(c.assessment.verdict === verdict && rec === action && c.assessment.amount === amount && ev.filter((e) => e.type === 'step' && e.state === 'done').length === 4, `${n} ${c.assessment.type}: ${c.assessment.verdict} $${c.assessment.amount}, recommends ${rec}`);
     const d = await cases.draft(n, action);
-    const body = action === 'accept' ? { action } : { action, subject: d.subject, body: d.body, attachments: d.attachments.map((a) => a.name).slice(0, action === 'dispute' ? 3 : 4) };
+    const body = action === 'accept' ? { action } : { action, subject: d.subject, body: d.body, attachments: d.attachments.map((a) => a.name) };
     const after = await cases.approve(n, body);
-    check(after.status === (action === 'accept' ? 'accepted' : 'waiting'), `${n}: approved -> ${after.status}${after.sent ? ' with ' + after.sent.attachments.length + ' attachments' : ''}`);
+    check(after.status === (action === 'accept' ? 'accepted' : 'waiting'), `${n}: approved -> ${after.status}${after.sent ? ` · "${after.sent.subject}" · ${after.sent.attachments.length} attachments` : ''}`);
   }
   let err = null; try { await cases.approve('2086', { action: 'request', subject: 'x', body: 'x' }); } catch (e) { err = e.message; }
   check(/already/.test(err || ''), 'double-approve blocked');
-  const sent = mail.slice(1);
-  check(sent.length === 2 && sent[0].message.attachments.length === 4 && sent[1].message.attachments.length === 3, `sent ${sent.length} emails, attachments ${sent.map((m) => m.message.attachments.length)}`);
-  let r = await cases.checkReplies('2086');
+  const sent = mail.slice(5);
+  check(sent.length === 6, `sent ${sent.length} follow-ups`);
+  const s2079 = sent.find((m) => m.message.subject.includes('2079'));
+  check(s2079 && s2079.message.attachments.length === 5, '2079 dispute carries both PODs (5 attachments)');
+  let r = await cases.checkReplies('2079');
   check(r.found === false, 'no reply yet -> not found');
-  mail.push({ id: 'm' + ++id, at: new Date(Date.now() + 5000).toISOString(), message: { subject: 'RE: ' + sent[0].message.subject, body: { content: 'Receiving shows 120 accepted. Deduction DED-55120 reversed; will be added to the next remittance.' }, attachments: [] } });
-  r = await cases.checkReplies('2086');
-  check(r.found && r.case.status === 'resolved' && r.case.outcome.amount === 240, `reply found -> ${r.case.status}, recovered ${r.case.outcome?.amount}`);
+  mail.push({ id: 'm' + ++id, at: new Date(Date.now() + 5000).toISOString(), message: { subject: 'RE: ' + s2079.message.subject, body: { content: 'We matched the West POD. Deduction KD-77310 reversed; will be added to the next remittance.' }, attachments: [] } });
+  r = await cases.checkReplies('2079');
+  check(r.found && r.case.status === 'resolved' && r.case.outcome.amount === 720, `reply found -> ${r.case.status}, recovered ${r.case.outcome?.amount}`);
   const q2 = await cases.queue();
-  check(q2.totals.recovered === 240 && q2.totals.accepted === 96 && q2.totals.inDispute === 144, `totals ${JSON.stringify(q2.totals)}`);
+  check(q2.totals.recovered === 720 && q2.totals.accepted === 1098 && q2.totals.inDispute === 1148, `totals ${JSON.stringify({ recovered: q2.totals.recovered, accepted: q2.totals.accepted, inDispute: q2.totals.inDispute })}`);
   check(db.Invoice.every((i) => /\[Cleared\]/.test(i.PrivateNote || '')), 'QuickBooks notes written after approval');
-  const f = await cases.file('2087', 'POD_2087.pdf');
+  const f = await cases.file('2079', 'POD_2079_West.pdf');
   check(f && f.length > 1000, 'file served');
 } catch (e) { console.error(e); ok = false; }
 finally {
