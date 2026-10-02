@@ -14,10 +14,10 @@ const APPS = {
   onedrive: { name: 'OneDrive', mark: '☁' },
 };
 const logo = (app, lg) => `<span class="applogo ${app}${lg ? ' lg' : ''}">${app === 'cleared' ? '✓' : APPS[app]?.mark || ''}</span>`;
-const PLAN = [
+const PLAN = (row) => [
   { step: 'reconcile', app: 'quickbooks', text: 'Check what was billed and paid in QuickBooks' },
-  { step: 'remittance', app: 'outlook', text: "Read UNFI's payment advice in Outlook" },
-  { step: 'evidence', app: 'onedrive', text: 'Read the invoice, manifest and POD in OneDrive' },
+  { step: 'remittance', app: 'outlook', text: `Read ${row.customer}'s payment advice in Outlook` },
+  { step: 'evidence', app: 'onedrive', text: `Read the Invoice ${row.n} paperwork in OneDrive` },
   { step: 'decide', app: null, text: 'Decide what the evidence supports' },
 ];
 
@@ -83,15 +83,15 @@ function renderKpis() {
   if (!q?.totals) return ($('#kpis').innerHTML = '');
   const t = q.totals;
   const cnt = (f) => q.rows.filter(f).length;
-  const dl = q.deadline;
+  const dl = t.nextDeadline;
   const tiles = [
-    { k: 'withheld', label: `Withheld · check ${q.source.check}`, val: money(t.withheld), sub: `${q.rows.length} deductions from ${q.rows[0]?.customer || ''}` },
+    { k: 'withheld', label: `Withheld · ${q.payers.length} payment advices`, val: money(t.withheld), sub: `${q.rows.length} deductions` },
     { k: 'open', label: 'To review', val: money(t.open), sub: `${cnt((r) => ['new', 'ready'].includes(r.status))} open` },
-    { k: 'inDispute', label: 'Waiting on UNFI', val: money(t.inDispute), sub: `${cnt((r) => r.status === 'waiting')} sent` },
+    { k: 'inDispute', label: 'Waiting on replies', val: money(t.inDispute), sub: `${cnt((r) => r.status === 'waiting')} sent` },
     { k: 'recovered', label: 'Recovered', val: money(t.recovered), sub: t.accepted ? `${money(t.accepted)} accepted as valid` : 'Reversed deductions', cls: 'good' },
-    { k: 'dl', label: 'Dispute window', val: dl ? `${dl.daysLeft} days` : '—', sub: dl ? `Closes ${dl.label}` : '', cls: dl && dl.daysLeft <= 10 ? 'warn' : '' },
+    { k: 'dl', label: 'Next deadline', val: dl ? `${dl.daysLeft} days` : '—', sub: dl ? `${dl.payer} · closes ${dl.label}` : 'Nothing open', cls: dl && dl.daysLeft <= 10 ? 'warn' : '' },
   ];
-  $('#kpis').innerHTML = tiles.map((x) => `<div class="kpi ${x.cls || ''} ${lastTotals[x.k] != null && lastTotals[x.k] !== t[x.k] ? 'bump' : ''}"><small>${esc(x.label)}</small><b>${esc(x.val)}</b><span>${esc(x.sub)}</span></div>`).join('');
+  $('#kpis').innerHTML = tiles.map((x) => `<div class="kpi ${x.cls || ''} ${lastTotals[x.k] != null && typeof t[x.k] === 'number' && lastTotals[x.k] !== t[x.k] ? 'bump' : ''}"><small>${esc(x.label)}</small><b>${esc(x.val)}</b><span>${esc(x.sub)}</span></div>`).join('');
   lastTotals = { ...t };
 }
 
@@ -99,7 +99,7 @@ function rowPill(r) {
   if (S.busy.has(r.n)) return `<span class="pill">Checking</span>`;
   if (r.status === 'new') return `<span class="pill new">New</span>`;
   if (r.status === 'ready') {
-    const next = { request_evidence: 'Next: ask for proof', dispute: 'Next: dispute', valid: 'Next: accept', paid_in_full: 'Paid' }[r.verdict] || 'Ready';
+    const next = { request_evidence: 'Next: ask for backup', dispute: r.recover && r.recover < r.amount ? `Next: dispute ${money(r.recover)}` : 'Next: dispute', valid: 'Next: accept', paid_in_full: 'Paid' }[r.verdict] || 'Ready';
     return `<span class="pill dark">${next}</span>`;
   }
   if (r.status === 'waiting') return `<span class="pill warn">Waiting on ${esc(r.customer)}</span>`;
@@ -112,22 +112,33 @@ const FILTERS = { all: () => true, review: (r) => ['new', 'ready'].includes(r.st
 function renderQueue() {
   const q = S.queue;
   if (!q) return;
-  $('#srcLink').hidden = !q.source;
-  if (q.source) $('#srcLink').textContent = `${q.rows[0]?.customer || ''} payment advice · check ${q.source.check} ↗`;
+  $('#srcLink').hidden = false;
+  $('#srcLink').textContent = `From ${q.payers.length} payment advices in Outlook`;
   $$('#filters button').forEach((b) => {
     const n = q.rows.filter(FILTERS[b.dataset.f]).length;
     b.innerHTML = `${{ all: 'All', review: 'To review', waiting: 'Waiting', closed: 'Closed' }[b.dataset.f]}<span class="n">${n}</span>`;
     b.classList.toggle('sel', b.dataset.f === S.filter);
   });
   const rows = q.rows.filter(FILTERS[S.filter]);
-  $('#rows').innerHTML = rows.length
-    ? rows
+  const groups = q.payers.map((p) => ({ p, rows: rows.filter((r) => r.customer === p.name) })).filter((g) => g.rows.length);
+  $('#rows').innerHTML = groups.length
+    ? groups
         .map(
-          (r) => `<button class="row ${S.selected === r.n ? 'sel' : ''} ${S.busy.has(r.n) ? 'busy' : ''}" data-n="${r.n}">
-        <b>Invoice ${esc(r.n)}</b><span class="amt ${r.status === 'accepted' ? 'struck' : ''}">${money(r.amount)}</span>
-        <span class="sub">${esc(r.reason)} · ${r.cases} cases · ${esc(r.ref)}</span><span></span>
-        ${rowPill(r)}
-      </button>`,
+          ({ p, rows }) => `<div class="grp">
+        <button class="grp-head" data-remit="${esc(p.file.name)}" title="Open the payment advice">
+          <b>${esc(p.name)}</b><span class="grp-sub">${esc(p.payment)} · ${money(p.withheld)}</span>
+          ${p.deadline ? `<span class="days ${p.deadline.daysLeft <= 10 ? 'warn' : ''}">${p.deadline.daysLeft}d</span>` : ''}
+        </button>
+        ${rows
+          .map(
+            (r) => `<button class="row ${S.selected === r.n ? 'sel' : ''} ${S.busy.has(r.n) ? 'busy' : ''}" data-n="${r.n}">
+          <b>Invoice ${esc(r.n)}</b><span class="amt ${r.status === 'accepted' ? 'struck' : ''}">${money(r.amount)}</span>
+          <span class="sub">${esc(r.reason)}${r.cases ? ` · ${r.cases} cases` : ''} · ${esc(r.ref)}</span><span></span>
+          ${rowPill(r)}
+        </button>`,
+          )
+          .join('')}
+      </div>`,
         )
         .join('')
     : `<div class="empty">Nothing here.</div>`;
@@ -170,17 +181,17 @@ async function select(n) {
 
 function headHtml(row, c) {
   const a = c?.assessment;
-  const dl = S.queue?.deadline;
+  const dl = row.deadline;
   const status = row.status === 'resolved' ? `<span class="pill good">Recovered</span>` : rowPill(row);
   return `<div class="case-head">
     <div>
       <div class="eyebrow">${esc(row.customer)} · ${esc(row.ref)} · ${esc(row.code || '')}</div>
       <h1>Invoice ${esc(row.n)}</h1>
-      <div class="claim">${esc(row.reason)} claim · ${row.cases} cases${a ? ` · billed ${a.billedQty} cases at ${money(a.rate)}` : ''}</div>
+      <div class="claim">${esc(row.reason)}${row.cases ? ` · ${row.cases} cases` : ''} · ${esc(row.payment)}${a ? ` · billed ${a.billedQty} cases at ${money(a.rate)}` : ''}</div>
     </div>
     <div class="right">
       <div class="big">${money(row.amount)}<small>${row.status === 'resolved' ? 'recovered' : row.status === 'accepted' ? 'written off' : 'withheld'}</small></div>
-      <div class="metaline">${dl && !['resolved', 'accepted'].includes(row.status) ? `<span class="pill ${dl.daysLeft <= 10 ? 'warn' : ''}">⏳ ${dl.daysLeft} days to dispute</span>` : ''}${status}<span class="timer" id="caseTimer" hidden></span></div>
+      <div class="metaline">${dl && !['resolved', 'accepted'].includes(row.status) ? `<span class="pill ${dl.daysLeft <= 10 ? 'warn' : ''}">⏳ ${dl.daysLeft} days to dispute · ${esc(dl.label)}</span>` : ''}${status}<span class="timer" id="caseTimer" hidden></span></div>
     </div>
   </div>`;
 }
@@ -191,7 +202,7 @@ function renderStart(row) {
     <div class="start">
       <h3>Investigate this short-pay</h3>
       <p>Cleared reads your records and the paperwork. Nothing is sent or changed.</p>
-      <ol class="plan" id="plan">${PLAN.map((p, i) => `<li data-step="${p.step}"><span class="ix">${i + 1}</span>${p.app ? logo(p.app) : `<span class="applogo cleared">✓</span>`}${esc(p.text)}<span class="st">Waiting</span></li>`).join('')}</ol>
+      <ol class="plan" id="plan">${PLAN(row).map((p, i) => `<li data-step="${p.step}"><span class="ix">${i + 1}</span>${p.app ? logo(p.app) : `<span class="applogo cleared">✓</span>`}${esc(p.text)}<span class="st">Waiting</span></li>`).join('')}</ol>
       <button class="btn wide" id="go" data-investigate="${row.n}">Investigate Invoice ${esc(row.n)}</button>
     </div></div>`;
 }
@@ -284,34 +295,23 @@ function startTimer(t0, frozen) {
 }
 
 function renderCase(c) {
-  const row = S.queue.rows.find((r) => r.n === c.n) || { n: c.n, customer: c.customer, ref: c.assessment.deductionRef, code: c.assessment.deductionCode, reason: c.assessment.deductionReason, cases: c.assessment.claimedCases, amount: c.assessment.claimedAmount, status: c.status };
+  const row = S.queue.rows.find((r) => r.n === c.n) || { n: c.n, customer: c.customer, ref: c.assessment.deductionRef, code: c.assessment.deductionCode, reason: c.assessment.deductionReason, cases: c.assessment.claimedCases, amount: c.assessment.claimedAmount, status: c.status, deadline: c.remittance.deadline, payment: c.remittance.payment };
   const a = c.assessment;
   const r = c.reconcile;
   const rm = c.remittance;
   const ev = c.evidence;
-  const t = ev.trail;
+  const nodes = ev.trail.nodes;
   const closed = ['waiting', 'resolved', 'accepted'].includes(c.status);
-  const podUnknown = t.accepted === null;
+  const trailWarn = nodes.some((n) => n.state === 'warn') && a.verdict !== 'valid';
   const steps = [
     { id: 's1', label: 'Billed vs. paid', st: 'done' },
     { id: 's2', label: `${row.customer}'s claim`, st: 'done' },
-    { id: 's3', label: 'Paper trail', st: podUnknown ? 'warn' : 'done' },
+    { id: 's3', label: 'The evidence', st: trailWarn ? 'warn' : 'done' },
     { id: 's4', label: closed ? (c.status === 'waiting' ? 'Waiting on reply' : 'Closed') : 'Decide & act', st: closed ? (c.status === 'waiting' ? 'warn' : 'done') : 'todo' },
   ];
   const paidPct = Math.max(0, Math.min(100, (r.paid / r.billed) * 100));
-  const docs = ev.docs;
-  const docFlag = (d) => {
-    const f = d.fields || {};
-    if (d.kind === 'invoice') return { t: `${money(f.total ?? r.billed)} · ${t.billed} cases`, w: false };
-    if (d.kind === 'manifest') return { t: `${f.cases_shipped ?? '?'} cases shipped`, w: f.cases_shipped !== t.billed };
-    if (d.kind === 'pod') return f.accepted_count == null ? { t: 'Accepted count not shown', w: true } : { t: `${f.accepted_count} accepted${f.exceptions ? ' · exception noted' : ''}`, w: false };
-    return { t: '', w: false };
-  };
-  const trailNote = podUnknown
-    ? `The POD was signed by ${esc(t.receivedBy || 'the DC')} but nobody wrote down how many cases were accepted. ${esc(row.customer)} paid for ${t.paidFor}, so ${t.claimedShort} cases are unaccounted for.`
-    : t.accepted >= t.billed
-      ? `All ${t.accepted} cases were accepted at the dock. Nothing supports the ${t.claimedShort}-case shortage.`
-      : `${t.billed - t.accepted} cases were refused at the dock${t.exceptions ? ` (“${esc(t.exceptions)}”)` : ''}. That matches the ${t.claimedShort}-case deduction.`;
+  const NODE = { ok: '', warn: 'unknown', info: 'short', muted: 'paid' };
+  const cols = nodes.map(() => '1fr').join(' 34px ');
 
   $('#work').innerHTML = `<div class="work-inner">
     ${headHtml(row, c)}
@@ -329,18 +329,17 @@ function renderCase(c) {
         <span>Invoice date <b>${d8(r.invoice.txnDate)}</b></span>
         <span>Due <b>${d8(r.invoice.dueDate)}</b></span>
         <span>PO <b>${esc(r.invoice.poNumber || '—')}</b></span>
-        ${r.payments.payments.map((p) => `<span>Payment <b>check ${esc(p.reference || '')} · ${d8(p.date)} · ${money(p.applied)}</b></span>`).join('')}
+        <span>Payment <b>${esc(rm.payment)} · ${d8(rm.paymentDate)} · ${money(r.paid)}</b></span>
       </div>
     </section>
 
     <section class="sec" id="s2">
-      <div class="sec-head"><span class="num">2</span><h3>What ${esc(row.customer)} says</h3><button class="src" data-doc="remittance">${logo('outlook')}Payment advice · check ${esc(rm.check)} ↗</button></div>
+      <div class="sec-head"><span class="num">2</span><h3>What ${esc(row.customer)} says</h3><button class="src" data-doc="remittance">${logo('outlook')}Payment advice · ${esc(rm.payment)} ↗</button></div>
       ${
-        rm.line
+        c.claim
           ? `<div class="claimbox">
-          <div class="code">${esc(rm.line.deduction_code || '')}<small>${esc(rm.line.deduction_ref || '')}</small></div>
-          <div><div class="what">${esc(rm.line.reason)}: ${rm.line.cases} cases</div>
-          <div class="math">${rm.line.cases} cases × ${money(r.rate)} = ${money(rm.line.deducted)} deducted</div></div>
+          <div class="code">${esc(c.claim.code || '')}<small>${esc(c.claim.ref || '')}</small></div>
+          <div><div class="what">${esc(c.claim.title)}</div><div class="math">${esc(c.claim.math)}</div></div>
           <span class="check ${rm.matchesGap ? '' : 'no'}">${rm.matchesGap ? `✓ Explains the ${money(r.gap)} gap` : '⚠ Does not match the gap'}</span>
         </div>`
           : `<div class="err">No deduction line for this invoice on the payment advice.</div>`
@@ -348,19 +347,13 @@ function renderCase(c) {
     </section>
 
     <section class="sec" id="s3">
-      <div class="sec-head"><span class="num">3</span><h3>What the paperwork shows</h3><span class="src">${logo('onedrive')}${esc(ev.folder.split('/').pop())}</span></div>
-      <div class="trail">
-        <div class="node"><small>Billed</small><b>${t.billed}</b><span>cases on the invoice</span></div><div class="arrow">→</div>
-        <div class="node ${t.shipped !== t.billed ? 'unknown' : ''}"><small>Shipped</small><b>${t.shipped ?? '?'}</b><span>cases on the manifest</span></div><div class="arrow">→</div>
-        <div class="node ${podUnknown ? 'unknown' : t.accepted < t.billed ? 'short' : ''}"><small>Accepted</small><b>${podUnknown ? '?' : t.accepted}</b><span>${podUnknown ? 'not written on the POD' : t.accepted < t.billed ? `${t.billed - t.accepted} refused at dock` : 'signed for at the DC'}</span></div><div class="arrow">→</div>
-        <div class="node paid"><small>Paid for</small><b>${t.paidFor}</b><span>per ${esc(row.customer)}'s remittance</span></div>
-      </div>
-      <div class="trail-note">${trailNote}</div>
-      <div class="docs">${docs
-        .map((d) => {
-          const f = docFlag(d);
-          return `<button class="doc" data-doc="${d.kind}"><span class="pdf"></span><span><b>${esc(d.label)}</b><span class="k">${esc(d.name)}</span><span class="flag ${f.w ? 'warn' : ''}">${f.w ? '⚠ ' : '✓ '}${esc(f.t)}</span></span><span class="open">View</span></button>`;
-        })
+      <div class="sec-head"><span class="num">3</span><h3>What the paperwork shows</h3><span class="src">${logo('onedrive')}${esc(ev.folder.split('/').pop())} · ${ev.docs.length} files</span></div>
+      <div class="trail" style="grid-template-columns:${cols}">${nodes
+        .map((n, i) => `${i ? '<div class="arrow">→</div>' : ''}<div class="node ${NODE[n.state] ?? ''}" style="animation-delay:${i * 0.15}s"><small>${esc(n.label)}</small><b>${esc(n.value)}</b><span>${esc(n.sub || '')}</span></div>`)
+        .join('')}</div>
+      <div class="trail-note">${esc(ev.trail.note)}</div>
+      <div class="docs">${ev.docs
+        .map((d) => `<button class="doc" data-doc-name="${esc(d.name)}"><span class="pdf"></span><span><b>${esc(d.label)}</b><span class="k">${esc(d.name)}</span><span class="flag ${d.flag.state === 'warn' ? 'warn' : ''}">${d.flag.state === 'warn' ? '⚠ ' : '✓ '}${esc(d.flag.text)}</span></span><span class="open">View</span></button>`)
         .join('')}</div>
     </section>
 
@@ -517,29 +510,18 @@ async function replyAction(kind) {
 }
 
 // ---------- document drawer ----------
-const FIELDS = {
-  invoice: [['invoice_number', 'Invoice #'], ['po_number', 'PO'], ['total', 'Total', money]],
-  manifest: [['cases_shipped', 'Cases shipped'], ['po_number', 'PO']],
-  pod: [['cases_on_manifest', 'Cases on manifest'], ['accepted_count', 'Accepted count', null, 'Not shown on this POD'], ['received_by', 'Received by'], ['exceptions', 'Exceptions', null, 'None noted']],
-};
 function openDoc(doc, highlightInvoice) {
+  if (!doc) return;
   $('#dEyebrow').innerHTML = `${doc.kind === 'remittance' ? logo('outlook') + ' Outlook attachment' : logo('onedrive') + ' OneDrive'}`;
   $('#dTitle').textContent = `${doc.label} · ${doc.name}`;
   $('#dOpen').href = doc.url;
   $('#dFrame').src = doc.url + '#toolbar=0&navpanes=0&view=FitH';
-  const by = doc.reader === 'claude' ? '✦ Read by Claude' : doc.reader === 'cache' ? 'Read earlier this session' : 'Read by the built-in parser';
+  const by = doc.reader === 'claude' ? '✦ Read by Claude' : doc.reader === 'parser' ? 'Read by the built-in parser' : 'Read by Cleared';
   let html = `<h4>What Cleared read</h4><div class="by">${by}</div>`;
   if (doc.kind === 'remittance') {
-    const lines = doc.lines || [];
-    html += `<table>${lines.map((l) => `<tr class="${String(l.invoice_number) === String(highlightInvoice) ? 'hl' : ''}"><td>${esc(l.invoice_number)}</td><td>${esc(l.deduction_ref || '')}<br>${esc(l.reason || '')}</td><td style="text-align:right">−${money(l.deducted)}</td></tr>`).join('')}</table>`;
+    html += `<table>${(doc.lines || []).map((l) => `<tr class="${String(l.invoice_number) === String(highlightInvoice) ? 'hl' : ''}"><td>${esc(l.invoice_number)}</td><td>${esc(l.deduction_code || '')} ${esc(l.deduction_ref || '')}<br>${esc(l.reason || '')}${l.cases ? `: ${l.cases} cases` : ''}</td><td style="text-align:right">−${money(l.deducted)}</td></tr>`).join('')}</table>`;
   } else {
-    html += `<dl>${(FIELDS[doc.kind] || [])
-      .map(([k, label, fmt, missing]) => {
-        const v = doc.fields?.[k];
-        const empty = v == null || v === '';
-        return `<dt>${label}</dt><dd class="${empty && k === 'accepted_count' ? 'missing' : ''}">${empty ? esc(missing || '—') : esc(fmt ? fmt(v) : v)}</dd>`;
-      })
-      .join('')}</dl>`;
+    html += `<dl>${(doc.read || []).map((f) => `<dt>${esc(f.label)}</dt><dd class="${f.value == null && /accepted/i.test(f.label) ? 'missing' : ''}">${esc(f.value ?? f.missing ?? '—')}</dd>`).join('')}</dl>`;
   }
   $('#dRead').innerHTML = html;
   $('#drawer').hidden = false;
@@ -551,7 +533,7 @@ function closeDoc() {
 function docFor(kind, name) {
   const c = window.__case;
   if (kind === 'remittance' || (name && c?.remittance.file.name === name)) {
-    return { ...c.remittance.file, reader: c.remittance.reader, lines: S.remitLines || (c.remittance.line ? [c.remittance.line] : []) };
+    return { ...c.remittance.file, reader: c.remittance.reader, lines: c.remittance.lines || [] };
   }
   return c.evidence.docs.find((d) => (name ? d.name === name : d.kind === kind));
 }
@@ -569,6 +551,12 @@ document.addEventListener('click', async (e) => {
   if (opt) return choose(window.__case, opt.dataset.opt);
   const tog = t.closest('[data-toggle-att]');
   if (tog) return tog.parentElement.classList.toggle('off');
+  const gh = t.closest('[data-remit]');
+  if (gh) {
+    const p = S.queue.payers.find((x) => x.file.name === gh.dataset.remit);
+    const lines = S.queue.rows.filter((r) => r.customer === p.name).map((r) => ({ invoice_number: r.n, deduction_code: r.code, deduction_ref: r.ref, reason: r.reason, cases: r.cases, deducted: r.amount }));
+    return openDoc({ kind: 'remittance', label: `${p.name} payment advice`, name: p.file.name, url: p.file.url, lines }, S.selected);
+  }
   const dn = t.closest('[data-doc-name]');
   if (dn) return openDoc(docFor(null, dn.dataset.docName), window.__case?.n);
   const doc = t.closest('[data-doc]');
@@ -597,10 +585,6 @@ document.addEventListener('click', async (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !$('#drawer').hidden) closeDoc();
 });
-$('#srcLink').onclick = () => {
-  const q = S.queue;
-  openDoc({ kind: 'remittance', label: 'Payment advice', name: q.source.file.name, url: q.source.file.url, reader: null, lines: q.rows.map((r) => ({ invoice_number: r.n, deduction_ref: r.ref, reason: `${r.reason}: ${r.cases} cases`, deducted: r.amount })) }, S.selected);
-};
 $('#checkAll').onclick = async () => {
   const todo = S.queue.rows.filter((r) => r.status === 'new').map((r) => r.n);
   for (const n of todo) await investigate(n, { quick: S.selected !== n });
@@ -635,9 +619,6 @@ $('#reset').onclick = async () => {
 // ---------- boot ----------
 async function boot2() {
   await loadQueue();
-  if (S.queue?.rows) {
-    S.remitLines = S.queue.rows.map((r) => ({ invoice_number: r.n, deduction_ref: r.ref, reason: `${r.reason}: ${r.cases} cases`, deducted: r.amount }));
-  }
   if (S.selected) select(S.selected);
   else blank();
 }

@@ -90,7 +90,7 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -0.015em; }
 .queue-head { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px 14px 8px 16px; gap: 8px; }
 .queue-head h2 { font-size: 18px; font-weight: 800; color: var(--forest); }
 .srclink { border: 0; background: none; padding: 0; font-size: 11.5px; color: var(--muted); font-weight: 600; text-align: left; margin-top: 2px; }
-.srclink:hover { color: var(--ol); text-decoration: underline; }
+.srclink { cursor: default; }
 .ghost { border: 1px solid var(--line); background: #fff; border-radius: 9px; padding: 6px 11px; font-size: 12.5px; font-weight: 700; color: var(--green-ink); text-decoration: none; white-space: nowrap; }
 .ghost:hover { border-color: var(--green); }
 .ghost[disabled] { opacity: 0.5; cursor: progress; }
@@ -108,6 +108,14 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -0.015em; }
 .row .sub { font-size: 12px; color: var(--muted); }
 .row .amt.struck { color: var(--muted); text-decoration: line-through; font-weight: 600; }
 .row.busy .pill::before { content: ''; width: 9px; height: 9px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent; animation: spin 0.7s linear infinite; }
+.grp { display: flex; flex-direction: column; gap: 6px; }
+.grp + .grp { margin-top: 8px; }
+.grp-head { display: flex; align-items: baseline; gap: 8px; border: 0; background: none; text-align: left; padding: 6px 6px 2px; border-radius: 8px; }
+.grp-head b { font-size: 12.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--forest); }
+.grp-head .grp-sub { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.grp-head .days { margin-left: auto; font-size: 11px; font-weight: 800; color: var(--muted); background: var(--line-2); border-radius: 999px; padding: 2px 8px; }
+.grp-head .days.warn { color: var(--amber-ink); background: var(--amber-bg); }
+.grp-head:hover .grp-sub { color: var(--ol); text-decoration: underline; }
 .rows .empty { padding: 30px 16px; text-align: center; color: var(--muted); font-size: 13px; }
 
 .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 9px; border: 1px solid var(--line); color: var(--muted); background: #fff; white-space: nowrap; justify-self: start; }
@@ -203,7 +211,7 @@ button.src:hover { border-color: var(--ol); color: var(--ink); }
 .trail { display: grid; grid-template-columns: 1fr 34px 1fr 34px 1fr 34px 1fr; align-items: stretch; margin-bottom: 16px; }
 .node { border: 1.5px solid var(--good-line); background: var(--good-bg); border-radius: 12px; padding: 12px; text-align: center; animation: rise 0.4s both; }
 .node small { display: block; font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; color: var(--green-ink); text-transform: uppercase; }
-.node b { display: block; font-size: 26px; font-weight: 800; margin: 2px 0; font-variant-numeric: tabular-nums; }
+.node b { display: block; font-size: 24px; font-weight: 800; margin: 2px 0; font-variant-numeric: tabular-nums; }
 .node span { display: block; font-size: 11.5px; color: var(--ink-2); line-height: 1.3; }
 .node.unknown { border-style: dashed; border-color: var(--amber-line); background: var(--amber-bg); }
 .node.unknown small, .node.unknown b { color: var(--amber-ink); }
@@ -320,6 +328,7 @@ button.src:hover { border-color: var(--ol); color: var(--ink); }
 .read dd.missing { color: var(--amber-ink); background: var(--amber-bg); border: 1px dashed var(--amber-line); border-radius: 7px; padding: 5px 8px; }
 .read table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
 .read td { padding: 5px 2px; border-top: 1px solid var(--line); }
+.read td:last-child { white-space: nowrap; }
 .read tr.hl td { background: var(--amber-bg); font-weight: 700; }
 
 /* ---------- connect overlay ---------- */
@@ -391,7 +400,7 @@ button.src:hover { border-color: var(--ol); color: var(--ink); }
   .metaline { justify-content: flex-start; }
   .stepper { overflow-x: auto; }
   .stepper button { flex: none; }
-  .trail { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .trail { grid-template-columns: 1fr 1fr !important; gap: 8px; }
   .trail .arrow { display: none; }
   .claimbox { grid-template-columns: auto 1fr; }
   .sec-head { flex-wrap: wrap; }
