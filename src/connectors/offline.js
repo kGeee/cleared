@@ -97,6 +97,9 @@ export const microsoft = {
   async downloadFile(id) {
     return fs.readFileSync(path.join(DOCS_DIR, id.replace(/^offline:/, '')));
   },
+  async findReply() {
+    return null; // offline rehearsal uses "Simulate reply" instead
+  },
   async sendMail({ to, subject, html, attachments }) {
     const msg = { id: `offline-sent-${sent.length + 1}`, sentAt: new Date().toISOString(), to, subject, html, attachments: attachments.map((a) => a.name) };
     sent.push(msg);

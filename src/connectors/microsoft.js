@@ -133,6 +133,28 @@ export async function findRemittance(invoiceNumber) {
   };
 }
 
+// Outlook: find the distributor's reply to a follow-up Cleared sent (newest "RE:" after the send time).
+export async function findReply(invoiceNumber, sentSubject, sinceIso) {
+  const search = encodeURIComponent(`"Invoice ${invoiceNumber}"`);
+  const r = await graph(`/me/messages?$search=${search}&$top=25&$select=id,subject,from,receivedDateTime,bodyPreview,parentFolderId`);
+  const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const want = norm(sentSubject);
+  const since = new Date(sinceIso).getTime();
+  const hits = (r.value || [])
+    .filter((m) => /^(re|aw|sv)\s*:/i.test(m.subject || '') && norm(m.subject).includes(want) && new Date(m.receivedDateTime).getTime() > since)
+    .sort((a, b) => new Date(b.receivedDateTime) - new Date(a.receivedDateTime));
+  const m = hits[0];
+  if (!m) return null;
+  let text = m.bodyPreview || '';
+  try {
+    const full = await graph(`/me/messages/${m.id}?$select=uniqueBody`, { headers: { Prefer: 'outlook.body-content-type="text"' } });
+    text = (full.uniqueBody?.content || text).trim();
+  } catch {
+    /* preview is enough */
+  }
+  return { from: m.from?.emailAddress?.name || m.from?.emailAddress?.address || 'Distributor', at: m.receivedDateTime, subject: m.subject, text: text.slice(0, 1200) };
+}
+
 // OneDrive: list the invoice packet folder.
 export async function listPacket(invoiceNumber) {
   const folder = packetPath(invoiceNumber);
