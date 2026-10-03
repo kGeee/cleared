@@ -223,7 +223,7 @@ const REQUEST_TITLE = { quantity: 'Request the receiving count', pricing: 'Ask w
 const REQUEST_SUBJECT = { quantity: 'receiving detail', pricing: 'cost applied', promo: 'promotion backup', slotting: 'slotting backup', otif: 'OTIF detail', other: 'deduction backup' };
 
 export function assess(c) {
-  const { invoice, payments, remittance, docs: docList = [] } = c;
+  const { invoice, payments, remittance, docs: docList = [], review = [] } = c;
   if (!invoice) throw new Error('Look up the invoice first.');
   const line = remittance?.line || {};
   const billed = invoice.total;
@@ -240,6 +240,21 @@ export function assess(c) {
   const x = { n: invoice.docNumber, payer, claimed, claimedCases: line.cases ?? null, qty, rate, billed, invoiceDate: invoice.txnDate, reason: line.reason, docs };
   const r = (RULES[type] || RULES.other)(x);
   if (gap <= 0) Object.assign(r, { verdict: 'paid_in_full', headline: 'Paid in full.', detail: 'Nothing to resolve on this invoice.', amount: 0 });
+  // If any code check failed, Cleared doesn't decide: it hands the case to a person.
+  if (review.length) {
+    Object.assign(r, {
+      verdict: 'needs_review',
+      headline: 'This needs a person to check.',
+      detail: review[0] + (review.length > 1 ? ` (+${review.length - 1} more)` : ''),
+      amount: claimed,
+      note: `Cleared's math checks failed, so it won't recommend a dispute or a write-off. ${review.join(' ')}`,
+      ev: { ...r.ev, request: `We can't reconcile this payment against our records. ${review[0].replace(/QuickBooks shows/g, 'Our records show').replace(/QuickBooks recorded/g, 'We recorded').replace(/QuickBooks billed/g, 'We billed')}` },
+      ask: { ...r.ask, request: `Please send the payment detail and backup for the ${moneyExact(claimed)} deduction so we can match it.` },
+      requestSubjectOverride: 'payment detail',
+      requestTitle: 'Ask for the payment detail',
+      acceptNote: `Accepted after a person checked the numbers. Cleared had flagged: ${review[0]}`,
+    });
+  }
 
   const v = r.verdict;
   const amt = money(v === 'dispute' ? r.amount : claimed);
@@ -247,24 +262,24 @@ export function assess(c) {
   const options = [
     {
       id: 'request',
-      title: REQUEST_TITLE[type],
+      title: r.requestTitle || REQUEST_TITLE[type],
       desc: `Ask ${payer} for backup on the ${money(claimed)} ${isFine ? 'fine' : 'deduction'} before deciding.`,
-      strength: v === 'request_evidence' ? 'recommended' : v === 'dispute' ? 'possible' : 'weak',
-      why: v === 'request_evidence' ? r.detail : v === 'dispute' ? 'You already have proof; asking adds a round-trip.' : 'The paperwork already explains it.',
+      strength: v === 'request_evidence' || v === 'needs_review' ? 'recommended' : v === 'dispute' ? 'possible' : 'weak',
+      why: v === 'needs_review' ? "Get the payer's detail before anyone decides." : v === 'request_evidence' ? r.detail : v === 'dispute' ? 'You already have proof; asking adds a round-trip.' : 'The paperwork already explains it.',
     },
     {
       id: 'dispute',
       title: isFine ? 'Dispute the fine' : r.amount && r.amount < claimed ? `Dispute ${money(r.amount)}` : 'Dispute the deduction',
       desc: `Ask ${payer} to reverse ${amt}, with the ${r.proof} as proof.`,
       strength: v === 'dispute' ? 'recommended' : 'weak',
-      why: v === 'dispute' ? r.note : v === 'request_evidence' ? 'Without proof, a dispute is easy to deny.' : r.validWhy || 'The evidence supports the deduction.',
+      why: v === 'needs_review' ? "The numbers don't reconcile. Only a person who has checked them should dispute." : v === 'dispute' ? r.note : v === 'request_evidence' ? 'Without proof, a dispute is easy to deny.' : r.validWhy || 'The evidence supports the deduction.',
     },
     {
       id: 'accept',
       title: isFine ? 'Accept the fine' : 'Accept the deduction',
       desc: `Write off ${money(claimed)} and note it in QuickBooks. Nothing is sent to ${payer}.`,
       strength: v === 'valid' ? 'recommended' : 'weak',
-      why: v === 'valid' ? r.validWhy || 'The evidence supports it.' : `You'd give up ${money(v === 'dispute' ? r.amount : claimed)} that may be recoverable.`,
+      why: v === 'needs_review' ? "The numbers don't reconcile. Only a person who has checked them should write this off." : v === 'valid' ? r.validWhy || 'The evidence supports it.' : `You'd give up ${money(v === 'dispute' ? r.amount : claimed)} that may be recoverable.`,
     },
   ];
 
@@ -289,7 +304,8 @@ export function assess(c) {
     amountLabel: money(r.amount),
     trail: { nodes: r.trail, note: r.note },
     options,
-    email: { ev: r.ev, ask: r.ask, requestSubject: REQUEST_SUBJECT[type], proof: r.proof },
+    email: { ev: r.ev, ask: r.ask, requestSubject: r.requestSubjectOverride || REQUEST_SUBJECT[type], proof: r.proof },
+    review,
     acceptNote: r.acceptNote || null,
   };
 }

@@ -7,6 +7,7 @@ import { AGENT, MODE, config, money, moneyExact, SCENARIOS } from './config.js';
 import { quickbooks, microsoft } from './sources.js';
 import { readDocument, kindOf } from './extract.js';
 import { assess, deadlineFor } from './assess.js';
+import { checkReconcile, factSet, unverifiedNumbers } from './verify.js';
 import * as store from './store.js';
 
 const client = AGENT === 'claude' ? new Anthropic({ apiKey: config.anthropic.apiKey }) : null;
@@ -184,6 +185,7 @@ export async function investigate(n, emit, { pace = true } = {}) {
     const f = doc.fields;
     const line = (f.lines || []).find((l) => String(l.invoice_number) === n) || null;
     const window = f.window_days || config.disputeWindowDays;
+    const issues = (doc.issues || []).filter((x) => !/^Invoice \d+:/.test(x) || x.startsWith(`Invoice ${n}:`));
     return {
       message: found.message,
       payment: `${f.method || 'Payment'} ${f.number || ''}`.trim(),
@@ -194,6 +196,7 @@ export async function investigate(n, emit, { pace = true } = {}) {
       reader: doc.reader,
       file: { name: found.attachment.name, kind: 'remittance', label: LABEL.remittance, url: fileUrl(n, found.attachment.name) },
       matchesGap: line ? Math.abs(line.deducted - recon.gap) < 0.01 : false,
+      issues,
     };
   });
 
@@ -207,7 +210,7 @@ export async function investigate(n, emit, { pace = true } = {}) {
         const d = await readDocument(f.name, bytes);
         const view = docView(d.kind, d.fields, ctx);
         const loc = d.kind === 'pod' && d.fields.location ? ` · ${d.fields.location}` : '';
-        return { name: f.name, kind: d.kind, label: (LABEL[d.kind] || f.name) + loc, short: (SHORT[d.kind] || f.name) + loc, url: fileUrl(n, f.name), webUrl: f.webUrl || null, fields: d.fields, reader: d.reader, ...view };
+        return { name: f.name, kind: d.kind, label: (LABEL[d.kind] || f.name) + loc, short: (SHORT[d.kind] || f.name) + loc, url: fileUrl(n, f.name), webUrl: f.webUrl || null, fields: d.fields, reader: d.reader, issues: d.issues || [], ...view, ...(d.issues?.length ? { flag: { text: 'Numbers don’t add up', state: 'warn' } } : {}) };
       }),
     );
     const order = ['invoice', 'purchase_order', 'manifest', 'pod', 'appointment', 'price_letter', 'promo_agreement', 'slotting_agreement'];
@@ -216,7 +219,9 @@ export async function investigate(n, emit, { pace = true } = {}) {
   });
 
   const decision = await step('decide', null, 'Weighing the evidence', async () => {
-    const assessment = assess({ invoice: recon.invoice, payments: recon.payments, remittance: { line: remit.line }, docs: evidence.docs.map((d) => ({ kind: d.kind, fields: d.fields })) });
+    // Code checks before any verdict: QuickBooks vs the payment advice, and each document's own math.
+    const review = [...checkReconcile({ billed: recon.billed, paid: recon.paid, line: remit.line }), ...remit.issues, ...evidence.docs.flatMap((d) => d.issues || [])];
+    const assessment = assess({ invoice: recon.invoice, payments: recon.payments, remittance: { line: remit.line }, docs: evidence.docs.map((d) => ({ kind: d.kind, fields: d.fields })), review });
     return { assessment };
   });
 
@@ -256,7 +261,7 @@ export async function investigate(n, emit, { pace = true } = {}) {
     c.status = prev.status;
     c.startedAt = prev.startedAt;
   }
-  log(c, `Checked QuickBooks, ${c.customer}'s payment advice and ${evidence.docs.length} documents. ${a.headline}`, a.verdict === 'valid' ? 'good' : 'warn');
+  log(c, `Checked QuickBooks, ${c.customer}'s payment advice and ${evidence.docs.length} documents${a.review?.length ? `; ${a.review.length} check${a.review.length > 1 ? 's' : ''} failed` : '; all math checks passed'}. ${a.headline}`, a.verdict === 'valid' ? 'good' : 'warn');
   put(n, c);
   emit({ type: 'case', case: c });
   return c;
@@ -290,7 +295,8 @@ async function claudeDraft(action, c) {
   const res = await client.messages.create({
     model: config.anthropic.model,
     max_tokens: 700,
-    system: `You polish accounts-receivable emails from a CPG brand to a retailer or distributor's deductions team. Keep every fact, number, date and reference exactly as given; do not add facts. Polite, specific, under 130 words, plain text. Keep the sign-off. Return JSON {"subject": string, "body": string} only. Keep the subject unchanged.`,
+    temperature: 0,
+    system: `You polish one accounts-receivable email from Fable Grove Foods (a CPG brand) to a retailer's or distributor's deductions team. The draft's facts were computed and checked in code. Rules: keep every number, dollar amount, date, invoice number, PO number, payment number and deduction reference exactly as written; do not add, remove, round or recompute any number; do not add facts, promises or deadlines; keep the request (the one thing being asked for) and the sign-off. Improve only flow and tone: polite, direct, under 130 words, plain text, no markdown. Keep the subject unchanged. Return only JSON {"subject": string, "body": string}. Code rejects any draft whose numbers differ from the original.`,
     messages: [{ role: 'user', content: JSON.stringify({ draft: base, must_include_exact_amount: amount }) }],
   });
   const text = res.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
@@ -298,6 +304,8 @@ async function claudeDraft(action, c) {
   if (!out.subject || !out.body) throw new Error('draft missing fields');
   // Guardrail: the email must state the exact amount the code computed.
   if (!out.body.includes(amount)) throw new Error('draft did not state the exact amount');
+  const stray = unverifiedNumbers(out.body, factSet(base.body, base.subject));
+  if (stray.length) throw new Error(`draft introduced numbers not in the evidence: ${stray.map((x) => x.raw).join(', ')}`);
   return { subject: out.subject, body: out.body };
 }
 
@@ -326,7 +334,7 @@ export async function draft(n, action) {
 }
 
 // ---------- approve: the only place anything is sent or written ----------
-export async function approve(n, { action, subject, body, attachments }) {
+export async function approve(n, { action, subject, body, attachments, override }) {
   n = String(n);
   const c = get(n);
   if (!c?.assessment) throw new Error('Investigate this short-pay first.');
@@ -335,6 +343,9 @@ export async function approve(n, { action, subject, body, attachments }) {
   const now = new Date();
   const who = config.approverName;
   const elapsed = Math.round((now - c.startedAt) / 1000);
+  if (a.verdict === 'needs_review' && action !== 'request' && !override) {
+    throw new Error("This case didn't pass Cleared's checks. Confirm you've checked the numbers yourself to continue.");
+  }
 
   if (action === 'accept') {
     const d = await draft(n, 'accept');
@@ -347,6 +358,7 @@ export async function approve(n, { action, subject, body, attachments }) {
     c.status = 'accepted';
     c.outcome = { kind: 'accepted', amount: a.claimedAmount };
     c.approval = { action, at: now.toISOString(), by: who, elapsed, noted };
+    if (a.verdict === 'needs_review') log(c, `${who} overrode the review flag after checking the numbers`, 'warn');
     log(c, `${who} accepted the ${money(a.claimedAmount)} ${a.type === 'otif' ? 'fine' : 'deduction'}${noted ? '; note added in QuickBooks' : ''}`, 'good');
     store.audit({ action: 'accept_deduction', invoice: n, ref: a.deductionRef, amount: a.claimedAmount, approver: who });
     return put(n, c);
@@ -365,6 +377,7 @@ export async function approve(n, { action, subject, body, attachments }) {
   } catch (e) {
     console.warn('[approve] QuickBooks note failed:', e.message);
   }
+  if (a.verdict === 'needs_review' && action !== 'request') log(c, `${who} overrode the review flag after checking the numbers`, 'warn');
   c.status = 'waiting';
   c.sent = { action, to, subject, body, attachments: chosen.map((x) => x.name), at: sent.sentAt || now.toISOString(), messageId: sent.id, webLink: sent.webLink, amount };
   c.approval = { action, at: now.toISOString(), by: who, elapsed, noted };

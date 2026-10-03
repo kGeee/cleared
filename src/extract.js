@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { AGENT, config } from './config.js';
+import { checkDocument } from './verify.js';
 
 const client = AGENT === 'claude' ? new Anthropic({ apiKey: config.anthropic.apiKey }) : null;
 const cache = new Map();
@@ -138,12 +139,13 @@ async function claudeRead(kind, bytes) {
   const res = await client.messages.create({
     model: config.anthropic.model,
     max_tokens: 1200,
+    temperature: 0,
     messages: [
       {
         role: 'user',
         content: [
           { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: Buffer.from(bytes).toString('base64') } },
-          { type: 'text', text: `${PROMPTS[kind]}\nReturn only the JSON object, no prose.` },
+          { type: 'text', text: `${PROMPTS[kind]}\n\nRules: Copy every number exactly as printed on the document. Do not calculate, total, infer or fill in any value; if a field isn't printed, use null. Money as plain numbers without $ or commas (2880.00 -> 2880). Dates as YYYY-MM-DD. Your output is checked by code against the document's own arithmetic, and a person reviews anything that doesn't add up. Return only the JSON object, no prose.` },
         ],
       },
     ],
@@ -167,6 +169,17 @@ export async function readDocument(name, bytes) {
     }
   }
   if (!fields) fields = await parseText(kind, bytes);
-  cache.set(key, { fields, reader });
-  return { kind, fields, reader };
+  // Check the document's own arithmetic in code. If Claude's read fails it, try the parser before flagging.
+  let issues = checkDocument(kind, fields);
+  if (issues.length && reader === 'claude') {
+    const parsed = await parseText(kind, bytes).catch(() => null);
+    if (parsed && !checkDocument(kind, parsed).length) {
+      console.warn(`[extract] Claude's read of ${name} failed checks (${issues[0]}); using the parser's read.`);
+      fields = parsed;
+      reader = 'parser';
+      issues = [];
+    }
+  }
+  cache.set(key, { fields, reader, issues });
+  return { kind, fields, reader, issues };
 }
