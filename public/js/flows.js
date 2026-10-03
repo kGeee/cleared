@@ -277,7 +277,7 @@ export async function financeQueue(payer, said) {
   $$('[data-act]', el).forEach((b) => b.addEventListener('click', () => hooks.start('financeCase', b.dataset.act)));
 }
 
-const TAG = { request_evidence: ['Claim, not proven', 'warn'], dispute: ['Claim not supported', 'warn'], valid: ['Claim supported', 'good'], paid_in_full: ['Resolved', 'good'] };
+const TAG = { request_evidence: ['Claim, not proven', 'warn'], dispute: ['Claim not supported', 'warn'], valid: ['Claim supported', 'good'], paid_in_full: ['Resolved', 'good'], needs_review: ['Needs a person', 'warn'] };
 
 export async function financeCase(n, said) {
   n = String(n);
@@ -322,6 +322,13 @@ export async function financeCase(n, said) {
   return caseCards(c, t0);
 }
 
+function checksLine(a) {
+  const n = a.review?.length || 0;
+  return n
+    ? `<div class="codecheck bad">⚠ ${n} code check${n > 1 ? 's' : ''} failed · QuickBooks vs payment advice, document totals</div>`
+    : `<div class="codecheck">✓ Checked in code: QuickBooks vs payment advice · each document's totals</div>`;
+}
+
 function trailHtml(nodes) {
   const NODE = { ok: '', warn: 'unknown', info: 'short', muted: 'paid' };
   return `<div class="mtrail">${nodes.map((x, i) => `${i ? '<span class="ar">→</span>' : ''}<div class="mnode ${NODE[x.state] ?? ''}"><small>${esc(x.label)}</small><b>${esc(x.value)}</b><span>${esc(x.sub || '')}</span></div>`).join('')}</div>`;
@@ -336,7 +343,8 @@ async function caseCards(c, t0) {
     <div class="gapline"><span>◷ Unresolved difference</span><b>${money(r.gap)}</b></div>`);
   if (c.claim) add(`<span>${esc(c.claim.title)}</span><span class="ref">${esc(c.claim.code)} · ${esc(c.claim.ref)}</span><span class="tag ${TAG[a.verdict]?.[1] || ''}">${TAG[a.verdict]?.[0] || ''}</span>`, 'claimline');
   const ev = card(`${eyebrow()}<h4>Let's check the evidence.</h4>${trailHtml(c.evidence.trail.nodes)}
-    <p class="detail">${esc(c.evidence.trail.note)}</p>
+    <p class="detail">${esc(a.verdict === 'needs_review' ? c.evidence.trail.nodes.length ? "Cleared's math checks failed on this one. Details below." : '' : c.evidence.trail.note)}</p>
+    ${checksLine(a)}
     <div class="docchips">${[c.remittance.file, ...c.evidence.docs].map((d) => `<button class="dchip ${d.flag?.state === 'warn' ? 'warn' : ''}" data-doc="${esc(d.name)}">${d.kind === 'remittance' ? logo('outlook') : logo('onedrive')}${esc(d.short || 'Remittance')}</button>`).join('')}</div>`);
   $$('[data-doc]', ev).forEach((b) =>
     b.addEventListener('click', () => {
@@ -345,7 +353,11 @@ async function caseCards(c, t0) {
       else openDoc({ title: `${d.label} · ${d.name}`, eyebrowHtml: `${logo('onedrive')} OneDrive · Invoice ${c.n} packet`, url: d.url, read: d.read, reader: d.reader });
     }),
   );
-  card(`<div class="vh"><span>${a.verdict === 'valid' ? '✅' : '⚠️'}</span><div><h4>${esc(a.headline)}</h4><p class="detail">${esc(a.detail)}</p>${c.remittance.deadline && a.verdict !== 'valid' ? `<div class="meta">${money(r.gap)} unresolved · dispute window closes ${esc(c.remittance.deadline.label)} (${c.remittance.deadline.daysLeft} days)</div>` : ''}</div></div>`, a.verdict === 'valid' ? 'good' : 'warn');
+  if (a.verdict === 'needs_review') {
+    card(`${eyebrow('Cleared · Needs your review')}<div class="vh"><span>👤</span><div><h4>${esc(a.headline)}</h4><p class="detail">I won't guess. These checks failed in code:</p></div></div>
+      <ul class="issues">${a.review.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+      <p class="detail">Ask ${esc(c.customer)} for the payment detail, or check QuickBooks yourself before anyone disputes or writes this off.</p>`, 'review');
+  } else card(`<div class="vh"><span>${a.verdict === 'valid' ? '✅' : '⚠️'}</span><div><h4>${esc(a.headline)}</h4><p class="detail">${esc(a.detail)}</p>${c.remittance.deadline && a.verdict !== 'valid' ? `<div class="meta">${money(r.gap)} unresolved · dispute window closes ${esc(c.remittance.deadline.label)} (${c.remittance.deadline.daysLeft} days)</div>` : ''}</div></div>`, a.verdict === 'valid' ? 'good' : 'warn');
   const opts = card(`${eyebrow('Cleared · What should we do?')}<div class="opts">${c.options
     .map((o) => `<button class="optb ${o.strength}" data-opt="${o.id}"><span class="pill ${o.strength === 'recommended' ? 'dark' : ''}">${o.strength === 'recommended' ? 'Recommended' : o.strength === 'possible' ? 'Possible' : 'Not advised'}</span><b>${esc(o.title)}</b><span>${esc(o.desc)}</span><em>${esc(o.why)}</em></button>`)
     .join('')}</div><div class="act"></div>`);
@@ -364,6 +376,13 @@ async function caseCards(c, t0) {
           <input class="subj" value="${esc(d.subject)}"><textarea class="body" rows="9">${esc(d.body)}</textarea>
           <div class="atts">${d.attachments.map((x) => `<button class="att on" data-att="${esc(x.name)}">${esc(x.label)}</button>`).join('')}</div></div>
           <button class="btn wide" data-approve>Approve &amp; send</button><div class="fine">Nothing is sent until you approve. Edit anything above.</div>`;
+    if (a.verdict === 'needs_review' && id !== 'request') {
+      actArea.insertAdjacentHTML('afterbegin', `<label class="override"><input type="checkbox"> I've checked the numbers myself and want to ${id === 'accept' ? 'write this off' : 'dispute'} anyway.</label>`);
+      const box = $('.override input', actArea);
+      const btn = $('[data-approve]', actArea);
+      btn.disabled = true;
+      box.addEventListener('change', () => (btn.disabled = !box.checked));
+    }
     $$('[data-att]', actArea).forEach((b) => b.addEventListener('click', () => b.classList.toggle('on')));
     $('[data-approve]', actArea).addEventListener('click', () => approve(c, id, actArea, t0));
   };
@@ -375,7 +394,8 @@ async function approve(c, action, area, t0) {
   const btn = $('[data-approve]', area);
   btn.disabled = true;
   btn.textContent = action === 'accept' ? 'Closing…' : 'Sending…';
-  const body = action === 'accept' ? { action } : { action, subject: $('.subj', area).value, body: $('.body', area).value, attachments: $$('.att.on', area).map((x) => x.dataset.att) };
+  const override = !!$('.override input', area)?.checked;
+  const body = action === 'accept' ? { action, override } : { action, override, subject: $('.subj', area).value, body: $('.body', area).value, attachments: $$('.att.on', area).map((x) => x.dataset.att) };
   try {
     working(action === 'accept' ? 'quickbooks' : 'outlook');
     const updated = await api(`/api/case/${c.n}/approve`, { method: 'POST', body });
@@ -443,13 +463,36 @@ export function route(text) {
   return () => ask(text);
 }
 
-// Anything else: Claude answers briefly about what's on screen (when an API key is set).
+// Anything else: the verified assistant. Claude answers from tools, does its math in code, and every number is
+// checked before it's shown. If it can't verify something, it hands the question to a person.
 async function ask(text) {
   you(text);
-  await step('Thinking', null, null, 300);
+  await step(S.status?.ai ? 'Checking with code' : 'Thinking', null, null, 300);
   const ctx = hooks.context?.();
-  const out = await api('/api/chat', { method: 'POST', body: { text, context: { lookingAt: ctx?.title || null, ops: S.ops.stage, growth: S.growth.stage, finance: S.queue?.totals || null } } }).catch(() => null);
-  say(out?.text || "I can help with orders and shipping, retail launches, and short-pays. Try one of the suggestions below.");
+  const out = await api('/api/chat', { method: 'POST', body: { text, context: { lookingAt: ctx?.title || null, app: S.app, ops: S.ops, growth: S.growth, facts: { po: PO, launch: LAUNCH } } } }).catch((e) => ({ error: e.message }));
+  if (out?.escalate) return escalation(out);
+  if (out?.text) {
+    const calc = (out.checks || []).map((t) =>
+      t.tool === 'calculate' ? `${esc(t.input.expression)} = <b>${esc(fmtNum(t.output.result))}</b>`
+      : t.tool === 'verify_equal' ? `${esc(t.output.label)}: ${t.output.ok ? '✓ matches' : '✗ expected ' + esc(fmtNum(t.output.expected))}`
+      : t.tool === 'days_until' ? `days to ${esc(t.input.date)} = <b>${esc(t.output.days)}</b>` : '');
+    return add(`<div class="ans">${esc(out.text)}</div>${calc.length || out.sources?.length ? `<div class="proof">${calc.length ? `<span>✓ Math done in code</span>${calc.map((x) => `<code>${x}</code>`).join('')}` : ''}${out.sources?.length ? `<span class="src">From: ${out.sources.map((x) => esc(SRC[x] || x)).join(', ')}</span>` : ''}</div>` : ''}`, 'say verified');
+  }
+  say(S.status?.ai ? "I couldn't answer that one. Try one of the suggestions below." : 'I can do arithmetic in code (try "what is 10 x 24") and help with orders, launches and short-pays through the suggestions below. Add an Anthropic key for open questions.');
+}
+const SRC = { get_short_pays: 'payment advices + QuickBooks', get_case: 'the investigated case', get_workspace: 'Operations and Growth status' };
+const fmtNum = (n) => (typeof n === 'number' ? (Number.isInteger(n) ? n.toLocaleString('en-US') : n.toLocaleString('en-US', { maximumFractionDigits: 4 })) : n);
+
+function escalation(out) {
+  const e = out.escalate;
+  const el = card(`${eyebrow('Cleared · Needs your review')}<div class="vh"><span>👤</span><div><h4>I'm handing this to you.</h4><p class="detail">${esc(e.reason)}</p></div></div>
+    ${e.check ? `<div class="meta">What to check: ${esc(e.check)}</div>` : ''}
+    ${out.checks?.length ? `<div class="proof"><span>What I checked in code</span>${out.checks.map((t) => `<code>${esc(t.tool)}${t.input?.expression ? ': ' + esc(t.input.expression) : t.input?.invoice ? ': ' + esc(t.input.invoice) : ''}${t.output?.result != null ? ' = ' + esc(fmtNum(t.output.result)) : t.output?.ok === false ? ' ✗' : ''}</code>`).join('')}</div>` : ''}
+    <button class="btn wide" data-act="take">I'll take it</button>`, 'review');
+  choice(el).then(() => {
+    $('[data-act="take"]', el).textContent = `Assigned to ${S.status?.approver || 'you'}`;
+    toast('Added to your review list');
+  });
 }
 
 export const FLOWS = { overview, opsPlan: () => opsPlan(false), opsWait, opsApprove, opsApprove480, opsHold, opsResume, opsPickup, opsStatus: () => opsStatus(), goGrowth, growthCheck: () => growthCheck(false), growthReview, growthApprove, growthReplies, growthStatus: () => growthStatus(), opsStatusFlow: () => opsStatus(), financeQueue: (payer) => financeQueue(payer), financeCase: (n) => financeCase(n) };

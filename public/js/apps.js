@@ -226,6 +226,7 @@ function quickbooks() {
 }
 export function statusPill(r) {
   if (r.status === 'new') return `<span class="pill">Partially paid</span>`;
+  if (r.status === 'ready' && r.verdict === 'needs_review') return `<span class="pill warn">Needs review</span>`;
   if (r.status === 'ready') return `<span class="pill dark">${{ request_evidence: 'Ask for backup', dispute: r.recover && r.recover < r.amount ? `Dispute ${money(r.recover)}` : 'Dispute', valid: 'Accept', paid_in_full: 'Paid' }[r.verdict] || 'Ready'}</span>`;
   if (r.status === 'waiting') return `<span class="pill warn">Waiting on ${esc(r.customer)}</span>`;
   if (r.status === 'resolved') return `<span class="pill good">Recovered</span>`;

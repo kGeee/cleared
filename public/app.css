@@ -411,6 +411,21 @@ body.busy .chip-s, body.busy .feed-empty .btn { opacity: 0.45; pointer-events: n
 .win b { display: block; font-size: 22px; font-weight: 800; }
 .win span { color: #cfe3cb; font-size: 12.5px; }
 
+/* verification + human review */
+.codecheck { font-size: 11.5px; font-weight: 700; color: var(--green-ink); background: var(--good-bg); border: 1px solid var(--good-line); border-radius: 8px; padding: 5px 9px; }
+.codecheck.bad { color: var(--amber-ink); background: var(--amber-bg); border-color: var(--amber-line); }
+.card.review { border: 1.5px solid #c9b8f0; background: linear-gradient(180deg, #faf7ff, #fff); }
+.card.review .eyebrow { color: #5b3fa8; }
+.issues { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--ink-2); display: flex; flex-direction: column; gap: 4px; }
+.override { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; font-weight: 600; color: #5b3fa8; background: #faf7ff; border: 1px dashed #c9b8f0; border-radius: 9px; padding: 8px 10px; }
+.override input { margin-top: 2px; accent-color: #5b3fa8; }
+.say.verified { display: flex; flex-direction: column; gap: 6px; }
+.say .ans { font-size: 13.5px; color: var(--ink); }
+.proof { display: flex; flex-direction: column; gap: 3px; border-left: 3px solid var(--good-line); padding: 4px 0 4px 9px; }
+.proof > span { font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--green-ink); }
+.proof .src { color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 600; }
+.proof code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: var(--ink-2); }
+
 /* ---------- drawer ---------- */
 .drawer { position: fixed; inset: 0; z-index: 20; }
 .drawer[hidden] { display: none; }
