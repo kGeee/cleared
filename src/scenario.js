@@ -11,7 +11,10 @@ export const payerById = (id) => payers.find((p) => p.id === id);
 export const invoiceByNumber = (n) => invoices.find((i) => i.docNumber === String(n));
 export const invoicesFor = (payerId) => invoices.filter((i) => i.payer === payerId);
 export const gross = (inv) => inv.qty * inv.rate;
-export const paid = (inv) => gross(inv) - inv.deduction.amount;
+// What QuickBooks recorded as received (usually gross − deduction; qboPaid simulates a mis-keyed payment).
+export const paid = (inv) => inv.qboPaid ?? gross(inv) - inv.deduction.amount;
+// What the payment advice says was paid.
+export const remitPaid = (inv) => gross(inv) - inv.deduction.amount;
 
 export function remitSubject(p) {
   const r = p.remittance;

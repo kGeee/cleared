@@ -8,7 +8,7 @@ import { MODE, config } from '../src/config.js';
 import * as qb from '../src/connectors/quickbooks.js';
 import * as ms from '../src/connectors/microsoft.js';
 import * as store from '../src/store.js';
-import { brand, payers, invoices, invoicesFor, gross, paid, remitSubject, packetFiles, docBytes } from '../src/scenario.js';
+import { brand, payers, invoices, invoicesFor, gross, paid, remitPaid, remitSubject, packetFiles, docBytes } from '../src/scenario.js';
 
 const only = process.argv[2];
 const log = (...a) => console.log('  ', ...a);
@@ -116,7 +116,7 @@ async function seedMicrosoft() {
     }
     const r = p.remittance;
     const rows = invoicesFor(p.id)
-      .map((s) => `<tr><td>${s.docNumber}</td><td>$${gross(s).toFixed(2)}</td><td>${s.deduction.code} ${s.deduction.ref}</td><td>${s.deduction.reason}${s.deduction.cases ? `: ${s.deduction.cases} cases` : ''}</td><td>-$${s.deduction.amount.toFixed(2)}</td><td>$${paid(s).toFixed(2)}</td></tr>`)
+      .map((s) => `<tr><td>${s.docNumber}</td><td>$${gross(s).toFixed(2)}</td><td>${s.deduction.code} ${s.deduction.ref}</td><td>${s.deduction.reason}${s.deduction.cases ? `: ${s.deduction.cases} cases` : ''}</td><td>-$${s.deduction.amount.toFixed(2)}</td><td>$${remitPaid(s).toFixed(2)}</td></tr>`)
       .join('');
     await ms.sendMail({
       to: ms.myEmail(),
@@ -134,7 +134,7 @@ async function seedMicrosoft() {
 try {
   if (!only || only === 'qbo') await seedQuickBooks();
   if (!only || only === 'ms') await seedMicrosoft();
-  console.log('\nDone. Open Cleared: 10 short-pays across 5 payers are waiting.');
+  console.log('\nDone. Open Cleared: 11 short-pays across 5 payers are waiting.');
 } catch (e) {
   console.error('\nSeed failed:', e.message);
   process.exit(1);
