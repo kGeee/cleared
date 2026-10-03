@@ -89,10 +89,41 @@ app.post('/api/case/:n/investigate', async (req, res) => {
   res.end();
 });
 
+// Read-only views for the desktop apps (QuickBooks invoice, OneDrive packet).
+app.get('/api/invoice/:n', wrap(async (req) => {
+  const invoice = await quickbooks.getInvoice(req.params.n);
+  if (!invoice) throw new Error(`Invoice ${req.params.n} not found`);
+  return { invoice, payments: await quickbooks.getPayments(invoice) };
+}));
+app.get('/api/packet/:n', wrap(async (req) => {
+  const { folder, files } = await microsoft.listPacket(req.params.n);
+  return { folder, files: files.map((f) => ({ name: f.name, url: `/api/case/${req.params.n}/file/${encodeURIComponent(f.name)}`, webUrl: f.webUrl || null })) };
+}));
+
 app.post('/api/case/:n/draft', wrap((req) => cases.draft(req.params.n, req.body?.action)));
 app.post('/api/case/:n/approve', wrap((req) => cases.approve(req.params.n, req.body || {})));
 app.post('/api/case/:n/replies', wrap((req) => cases.checkReplies(req.params.n)));
 app.post('/api/case/:n/simulate-reply', wrap((req) => cases.simulateReply(req.params.n)));
+
+// Free-form questions that don't match a flow. Claude answers briefly from the demo context; no tools, no actions.
+app.post('/api/chat', async (req, res) => {
+  const text = String(req.body?.text || '').slice(0, 500);
+  if (AGENT !== 'claude') return res.json({ text: null });
+  try {
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: config.anthropic.apiKey });
+    const r = await client.messages.create({
+      model: config.anthropic.model,
+      max_tokens: 300,
+      system: 'You are Cleared, an AI teammate for a CPG brand (Fable Grove) covering Operations (orders, warehouses, freight, ASNs), Growth (retail launches, brokers, stores) and Finance (short-pays and deductions). Answer in at most 3 short sentences, plainly. You cannot take actions from here; point the user to the suggestion buttons for that. Use only the context given; if you do not know, say so.',
+      messages: [{ role: 'user', content: `Context: ${JSON.stringify(req.body?.context || {})}\n\nQuestion: ${text}` }],
+    });
+    res.json({ text: r.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim() });
+  } catch (e) {
+    console.error('[chat]', e.message);
+    res.json({ text: null });
+  }
+});
 
 app.post('/api/reset', (_req, res) => {
   cases.reset();

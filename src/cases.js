@@ -103,7 +103,7 @@ export async function queue() {
   const open = rows.filter((x) => ['new', 'ready'].includes(x.status));
   const next = open.map((x) => x.deadline).filter(Boolean).sort((a, b) => a.daysLeft - b.daysLeft)[0] || null;
   return {
-    payers: rems.map((r) => ({ name: r.payer, payment: `${r.method} ${r.number}`, paymentDate: r.paymentDate, deadline: r.deadline, file: r.file, count: r.lines.length, withheld: r.lines.reduce((s, l) => s + l.deducted, 0) })),
+    payers: rems.map((r) => ({ name: r.payer, payment: `${r.method} ${r.number}`, paymentDate: r.paymentDate, deadline: r.deadline, file: r.file, count: r.lines.length, withheld: r.lines.reduce((s, l) => s + l.deducted, 0), message: { subject: r.message.subject, from: r.message.from, fromAddress: r.message.fromAddress, received: r.message.received, preview: r.message.preview } })),
     rows,
     totals: {
       withheld: rows.reduce((s, x) => s + x.amount, 0),
