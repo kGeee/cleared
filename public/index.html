@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cleared · Finance</title>
+  <title>Cleared · Your CPG team</title>
   <link rel="icon" href="/mascot.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,49 +13,60 @@
 <body>
   <header class="topbar">
     <div class="brand"><img src="/mascot.png" alt="" /><span>CLEARED</span></div>
-    <nav class="tabs">
-      <span class="tab soon" title="Operations teammate: on the roadmap">Operations</span>
-      <span class="tab soon" title="Growth teammate: on the roadmap">Growth</span>
-      <span class="tab active">Finance</span>
+    <nav class="tabs" id="teams">
+      <button class="tab" data-team="ops">Operations</button>
+      <button class="tab" data-team="growth">Growth</button>
+      <button class="tab" data-team="finance">Finance</button>
     </nav>
-    <form class="jump" id="jump" autocomplete="off">
-      <svg viewBox="0 0 24 24" width="15" height="15"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      <input id="jumpInput" placeholder="Jump to invoice…" />
-    </form>
     <div class="conn">
       <div class="working"><small>CONNECTED</small><span id="workingIn">Ready</span></div>
-      <div class="chips" id="chips"></div>
+      <button class="ghost" id="showConnect">Connections</button>
     </div>
   </header>
 
-  <section class="kpis" id="kpis"></section>
-
-  <main class="layout">
-    <aside class="queue">
-      <div class="queue-head">
-        <div>
-          <h2>Short-pays</h2>
-          <button class="srclink" id="srcLink" hidden></button>
-        </div>
-        <button class="ghost" id="checkAll" title="Investigate every new short-pay">Check all</button>
+  <main class="desk">
+    <div class="window">
+      <div class="titlebar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="titletext">Fable Grove · Work desktop</span>
+        <span class="legend"><span class="lv">● Live</span><span class="pv">● Preview</span></span>
       </div>
-      <div class="filters" id="filters">
-        <button data-f="all" class="sel">All</button>
-        <button data-f="review">To review</button>
-        <button data-f="waiting">Waiting</button>
-        <button data-f="closed">Closed</button>
+      <div class="wbody">
+        <nav class="dock" id="dock" aria-label="Apps"></nav>
+        <section class="app" id="appBody" aria-live="polite"></section>
+        <aside class="panel" id="panel" aria-label="Cleared">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title"><img src="/mascot.png" alt="" />Cleared</div>
+              <div class="panel-sub" id="panelSub">Beside your work</div>
+            </div>
+            <span class="panel-team" id="panelTeam"></span>
+            <button class="x" id="closePanel" aria-label="Close Cleared">✕</button>
+          </div>
+          <div class="ctx" id="ctx"></div>
+          <div class="feed" id="feed">
+            <div class="feed-empty" id="feedEmpty">
+              <img src="/mascot.png" alt="" />
+              <h3>Your CPG team, in one chat.</h3>
+              <p>I see what you're working on. Pick a suggestion below, or just ask.</p>
+              <button class="btn" data-flow="overview">What can you take off my plate?</button>
+            </div>
+          </div>
+          <div class="suggest" id="suggest"></div>
+          <form class="composer" id="composer" autocomplete="off">
+            <input id="q" placeholder="Message Cleared…" />
+            <button type="submit" aria-label="Send"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </form>
+        </aside>
+        <button class="launcher" id="launcher" aria-label="Open Cleared"><img src="/mascot.png" alt="" /><span class="badge-n" id="launcherBadge" hidden></span><span class="launcher-tip" id="launcherTip"></span></button>
       </div>
-      <div class="rows" id="rows"></div>
-    </aside>
-
-    <section class="work" id="work"></section>
+    </div>
   </main>
 
   <footer class="modebar">
     <span id="modeBadge" class="badge"></span>
     <span id="aiBadge" class="badge subtle"></span>
     <span class="spacer"></span>
-    <button class="link" id="showConnect">Connections</button>
     <button class="link" id="reset">Reset demo</button>
   </footer>
 
@@ -68,6 +79,7 @@
       </div>
       <div class="drawer-body">
         <iframe id="dFrame" title="Document preview"></iframe>
+        <div class="dpreview" id="dPreview" hidden></div>
         <div class="read" id="dRead"></div>
       </div>
     </div>
@@ -77,8 +89,8 @@
     <div class="connect-card">
       <div class="connect-left">
         <img src="/mascot.png" class="connect-mascot" alt="" />
-        <div class="eyebrow light">CLEARED · SETUP · ONE TIME</div>
-        <h1>Getting started takes one click.</h1>
+        <div class="eyebrow light">ONE CLICK. CONNECTED.</div>
+        <h1>Every tool you already use.</h1>
         <p>You approve access inside each app itself. Cleared reads what it needs, and nothing is sent or changed until you approve it.</p>
       </div>
       <div class="connect-right" id="connectList"></div>
@@ -86,6 +98,6 @@
   </div>
 
   <div class="toasts" id="toasts"></div>
-  <script src="/app.js" type="module"></script>
+  <script src="/js/main.js" type="module"></script>
 </body>
 </html>
