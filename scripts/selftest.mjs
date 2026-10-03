@@ -89,24 +89,30 @@ try {
   await import(ROOT + '/scripts/seed.js');
   await import(ROOT + '/scripts/seed.js?again'); // idempotency
   process.exit = realExit;
-  check(db.Invoice.length === 10 && db.Payment.length === 5 && db.Customer.length === 5, `seed idempotent: ${db.Customer.length} customers, ${db.Invoice.length} invoices, ${db.Payment.length} payments`);
+  check(db.Invoice.length === 11 && db.Payment.length === 5 && db.Customer.length === 5, `seed idempotent: ${db.Customer.length} customers, ${db.Invoice.length} invoices, ${db.Payment.length} payments`);
   check(db.Invoice.find((i) => i.DocNumber === '2079')?.Balance === 720, 'invoice 2079 balance 720');
-  check(files.size === 34 - 5 && mail.length === 5, `uploaded ${files.size} packet files, ${mail.length} payment advice emails`);
+  check(files.size === 36 - 5 && mail.length === 5, `uploaded ${files.size} packet files, ${mail.length} payment advice emails`);
 
   const cases = await import(ROOT + '/src/cases.js');
   cases.reset();
   const q = await cases.queue();
-  check(q.rows.length === 10 && q.totals.withheld === 3466 && q.payers.length === 5, `queue: ${q.rows.length} rows from ${q.payers.length} payers, $${q.totals.withheld} withheld`);
+  check(q.rows.length === 11 && q.totals.withheld === 3541 && q.payers.length === 5, `queue: ${q.rows.length} rows from ${q.payers.length} payers, $${q.totals.withheld} withheld`);
   const expect = {
     2086: ['request_evidence', 'request', 240], 2087: ['dispute', 'dispute', 144], 2088: ['valid', 'accept', 0],
     2079: ['dispute', 'dispute', 720], 2081: ['dispute', 'dispute', 120], 2083: ['valid', 'accept', 0],
     2097: ['dispute', 'dispute', 144], 2099: ['valid', 'accept', 0], 2104: ['valid', 'accept', 0], 2106: ['dispute', 'dispute', 500],
+    2109: ['needs_review', 'request', 75],
   };
   for (const [n, [verdict, action, amount]] of Object.entries(expect)) {
     const ev = [];
     const c = await cases.investigate(n, (e) => ev.push(e), { pace: false });
     const rec = c.options.find((o) => o.strength === 'recommended').id;
     check(c.assessment.verdict === verdict && rec === action && c.assessment.amount === amount && ev.filter((e) => e.type === 'step' && e.state === 'done').length === 4, `${n} ${c.assessment.type}: ${c.assessment.verdict} $${c.assessment.amount}, recommends ${rec}`);
+    if (verdict === 'needs_review') {
+      let e2 = null;
+      try { await cases.approve(n, { action: 'accept' }); } catch (e) { e2 = e.message; }
+      check(/checked the numbers/.test(e2 || ''), `${n}: accept blocked without human confirmation`);
+    }
     const d = await cases.draft(n, action);
     const body = action === 'accept' ? { action } : { action, subject: d.subject, body: d.body, attachments: d.attachments.map((a) => a.name) };
     const after = await cases.approve(n, body);
@@ -114,8 +120,10 @@ try {
   }
   let err = null; try { await cases.approve('2086', { action: 'request', subject: 'x', body: 'x' }); } catch (e) { err = e.message; }
   check(/already/.test(err || ''), 'double-approve blocked');
+  const c2109 = cases.getCase('2109');
+  check(c2109.assessment.review.some((x) => /\$20\.00 is unexplained/.test(x)), 'QuickBooks vs advice mismatch flagged in code ($20.00 unexplained)');
   const sent = mail.slice(5);
-  check(sent.length === 6, `sent ${sent.length} follow-ups`);
+  check(sent.length === 7, `sent ${sent.length} follow-ups`);
   const s2079 = sent.find((m) => m.message.subject.includes('2079'));
   check(s2079 && s2079.message.attachments.length === 5, '2079 dispute carries both PODs (5 attachments)');
   let r = await cases.checkReplies('2079');
@@ -124,8 +132,14 @@ try {
   r = await cases.checkReplies('2079');
   check(r.found && r.case.status === 'resolved' && r.case.outcome.amount === 720, `reply found -> ${r.case.status}, recovered ${r.case.outcome?.amount}`);
   const q2 = await cases.queue();
-  check(q2.totals.recovered === 720 && q2.totals.accepted === 1098 && q2.totals.inDispute === 1148, `totals ${JSON.stringify({ recovered: q2.totals.recovered, accepted: q2.totals.accepted, inDispute: q2.totals.inDispute })}`);
+  check(q2.totals.recovered === 720 && q2.totals.accepted === 1098 && q2.totals.inDispute === 1223, `totals ${JSON.stringify({ recovered: q2.totals.recovered, accepted: q2.totals.accepted, inDispute: q2.totals.inDispute })}`);
   check(db.Invoice.every((i) => /\[Cleared\]/.test(i.PrivateNote || '')), 'QuickBooks notes written after approval');
+  const v = await import(ROOT + '/src/verify.js');
+  const calc = (e) => { try { return v.calculate(e); } catch (x) { return 'ERR'; } };
+  check(calc('10 x 24') === 240 && calc('$2,880.00 - $2,640') === 240 && calc('sum(240,144,96)') === 480 && calc('round(144/4800*100, 2)') === 3 && calc('process.exit()') === 'ERR' && calc('1/0') === 'ERR', 'calculator: arithmetic in code, rejects code and bad input');
+  const assistant = await import(ROOT + '/src/assistant.js');
+  const a1 = await assistant.ask('what is 30 x 24?');
+  check(a1.text === '30 x 24 = 720.' && a1.checks[0].tool === 'calculate', `offline assistant answers arithmetic in code: "${a1.text}"`);
   const f = await cases.file('2079', 'POD_2079_West.pdf');
   check(f && f.length > 1000, 'file served');
 } catch (e) { console.error(e); ok = false; }

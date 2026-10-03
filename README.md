@@ -12,7 +12,7 @@ All three teammates from the film are here:
 **Growth: Friday's retail launch** (Excel → OneDrive → Outlook)
 10 of 12 sampling slots confirmed, and the broker kit uses an old image → "One fix. Two replies." → review the kit update and 3 follow-up emails (toggle or edit each) → approve → replies arrive → 12/12 confirmed, and the broker has the v3 kit.
 
-**Finance: 10 short-pays across 5 payers** (QuickBooks → Outlook → OneDrive)
+**Finance: 11 short-pays across 5 payers** (QuickBooks → Outlook → OneDrive)
 Cleared checks billed vs. paid, reads the payment advice and the paperwork, decides what the evidence supports and drafts the email → approve → the reply comes in → recovered. The cases:
 
 | Invoice | Payer | Deduction | What the evidence shows | Cleared recommends |
@@ -27,10 +27,25 @@ Cleared checks billed vs. paid, reads the payment advice and the paperwork, deci
 | **2099** | Walmart | OTIF fine, $72 | Carrier missed the appointment, 2 days late | Accept (pursue the carrier) |
 | **2104** | Maple Market (film's launch) | Slotting, $750 | Matches the signed agreement | Accept (valid) |
 | **2106** | Harbor Pantry (film's launch) | Slotting, $1,000 | Agreement says $500 | Dispute $500 |
+| **2109** | Maple Market | Promo chargeback, $75 | QuickBooks recorded $1,105 received, but the advice says $1,125 paid, so $20 is unexplained | **Needs a person.** Cleared won't decide; it asks for the payment detail |
 
 What's live and what's preview:
 - **Live** (connect with `.env`): QuickBooks, Outlook and OneDrive, i.e. the whole Finance flow plus the Outlook payment-advice emails.
 - **Preview**: the Excel, Cin7, ShipBob and SPS screens, and the Operations and Growth emails. They aren't connected in this POC, so they're simulated and labeled "Preview" in the app.
+
+## How Cleared stays accurate
+
+Claude reads documents, writes emails and answers typed questions. **Code does the math and the checks.** When something doesn't check out, Cleared hands it to a person instead of guessing.
+
+- **Strict, context-specific instructions.** Every Claude call is pinned to Fable Grove's three teammates and to what's on screen. It uses temperature 0. Out-of-scope questions get a one-line "not something I handle here".
+- **Arithmetic is code.** For typed questions, Claude has to call `calculate` (a safe parser, not `eval`), `verify_equal` and `days_until` for any number it states. It gets finance figures from `get_short_pays` and `get_case`, not from memory.
+- **Every number is checked before it's shown.** Code compares each number in Claude's answer against the tool results. A number that didn't come from code or data blocks the answer and becomes a **"Needs your review"** card. So does a failed `verify_equal`, or a question that needs a decision (`escalate_to_human`).
+- **Document reads are checked.** Code verifies that gross − deducted = paid on every remittance line, that qty × price = the invoice total, that warehouse splits add up and that accepted ≤ shipped. If Claude's read fails, Cleared re-reads with the parser. If that fails too, the case is flagged.
+- **Records are reconciled before any verdict.** QuickBooks billed − received must equal the payer's deduction. If it doesn't (Invoice 2109), the verdict is **Needs a person**: Cleared only recommends asking for the payment detail. Disputing or writing it off requires ticking "I've checked the numbers myself", and that override is logged.
+- **Polished emails can't change facts.** If Claude's version adds or changes any number, code rejects it and uses the evidence-built draft.
+- Without an API key, typed arithmetic ("what is 30 x 24 + 15%") is still answered in code.
+
+Tests: `npm test` covers the live code paths, all 11 cases and the calculator. `npm run test:chat` runs the chat against a stand-in Claude API: verified answers, an unverifiable number escalated, a failed check escalated, a decision handed to a person, the email-number guard, and temperature 0 everywhere. Both back up and restore `./data`.
 
 ## 1. Run it now (offline rehearsal, 2 minutes)
 
@@ -76,8 +91,8 @@ npm run seed             # loads the film's data into your QuickBooks sandbox, O
 Wait a minute or two after seeding. Outlook search needs time to index the payment advice emails. Then open Cleared.
 
 The seed script is safe to re-run. It creates:
-- **QuickBooks:** 5 customers (UNFI, KeHE, Walmart, Maple Market, Harbor Pantry), 10 invoices, and one payment per payer, applied net of deductions.
-- **OneDrive:** `Cleared Demo/Invoice <n> packet/` for each invoice. Depending on the type, it holds invoices, manifests, PODs, purchase orders, appointment records, cost change notices, promotion and slotting agreements: 29 files in all.
+- **QuickBooks:** 5 customers (UNFI, KeHE, Walmart, Maple Market, Harbor Pantry), 11 invoices, and one payment per payer, applied net of deductions (Invoice 2109's payment is deliberately recorded $20 short, for the "needs a person" case).
+- **OneDrive:** `Cleared Demo/Invoice <n> packet/` for each invoice. Depending on the type, it holds invoices, manifests, PODs, purchase orders, appointment records, cost change notices, promotion and slotting agreements: 31 files in all.
 - **Outlook:** 5 payment advice emails, one per payer, each with its remittance PDF attached. They're sent to yourself, so the sender shows as you.
 
 ---
@@ -90,7 +105,8 @@ The seed script is safe to re-run. It creates:
 4. Click **Next: Friday's retail launch**. Cleared shows 10 of 12 slots and an old image in the broker kit. Click **Review**, edit one follow-up, approve, then **Check for replies** to get 12/12.
 5. Click **Next: UNFI's $240 short-pay**. This is the live part: real QuickBooks, Outlook and OneDrive. Show the evidence trail, open the POD, approve the email, and show it arriving on your phone. Reply from your phone and click **Check for replies** to get $240 recovered.
 6. **Context, not commands.** Open QuickBooks and click Invoice 2079: Cleared offers to explain *that* short-pay. It's the same PO 1042 from Operations, and KeHE only matched the East POD. Or open the Walmart email: it offers the Walmart fines.
-7. Click **Reset demo** in the footer before the next run.
+7. **It knows when not to guess.** Open QuickBooks → Invoice 2109 → ask. The checks fail in code ($20 unexplained), so Cleared hands it to you. Click Accept to show it's locked until you confirm you checked the numbers. With a Claude key, type "UNFI shorted us $250 on 2086, right?": Cleared checks it in code, finds $240, and escalates instead of agreeing.
+8. Click **Reset demo** in the footer before the next run.
 
 **If anything breaks on stage:** stop the server and run `npm run offline`. It's the same UI and the same flow, with no network needed.
 
@@ -108,11 +124,14 @@ The seed script is safe to re-run. It creates:
 server.js                 HTTP server, OAuth routes, case API (investigate streams NDJSON)
 src/cases.js              Queue, investigation steps, options, drafts, approval, replies
 src/assess.js             Per-deduction-type rules: money math, verdict, evidence trail, email facts
+src/verify.js             Safe calculator, equality/day checks, document and reconcile checks, number provenance
+src/assistant.js          Typed-question assistant: strict prompt, code tools, answer verification, escalation
 src/scenario.js           Helpers over fixtures/scenarios.json (offline mode + seed)
 src/extract.js            Reads 9 document kinds (Claude PDF input, text parser fallback)
 src/connectors/           quickbooks.js, microsoft.js (live), offline.js (fixtures)
 scripts/seed.js           Loads the demo scenario into your accounts
 scripts/selftest.mjs      npm test: runs the live code paths against fake QuickBooks + Graph
+scripts/test-chat.mjs     npm run test:chat: the verified assistant against a stand-in Claude API
 scripts/make_docs.py      Regenerates the PDFs from fixtures/scenarios.json
 public/js/main.js         Desktop boot, context-aware suggestions, wiring
 public/js/apps.js         The 7 desktop apps; each reports what you're looking at
