@@ -1,17 +1,19 @@
-# Cleared · Finance teammate demo
+# Cleared · your CPG team, in one chat
 
-This is the Finance segment of the Cleared product film, built as an interactive workspace you click through.
+This is the product film, made clickable. It's a **Fable Grove work desktop** with the apps a CPG team lives in: Outlook, Excel, Cin7, ShipBob, SPS Commerce, QuickBooks and OneDrive. The **Cleared mascot** in the corner opens a chat beside whatever you're looking at.
 
-- **The queue.** Cleared reads UNFI's payment advice from **Outlook** and lists every short-paid invoice, with totals for withheld, waiting and recovered money, plus the dispute deadline.
-- **Investigate.** Click a short-pay, then **Investigate**. Four checks run as you watch:
-  1. **Billed vs. paid** from **QuickBooks**, shown as a bar with the short amount.
-  2. **What UNFI says**, read from the payment advice PDF: code, reference, cases × price.
-  3. **What the paperwork shows**, read from the invoice packet in **OneDrive**. A case trail runs Billed → Shipped → Accepted → Paid for, so you can see where the cases go missing. Click any document to open it next to what Cleared read from it.
-  4. **What should we do?** Cleared states what the evidence supports and recommends one of three actions. You can pick a different one.
-- **Act.** Edit the email, toggle attachments and click **Approve & send**. The email goes out from Outlook and a note is added to the invoice in QuickBooks. **Nothing is sent or written until you approve.**
-- **Follow up.** The case moves to *Waiting on* the payer. When they reply (in live mode, use **Check for replies**), Cleared reads the reply, marks the money recovered and updates the totals.
+Cleared knows what's on screen. Open the KeHE order email and it offers "What's blocking PO 1042?". Open the launch tracker and it offers "Is Friday's retail launch actually ready?". Open an invoice in QuickBooks and it offers "Why were we short-paid?". Each answer arrives as clickable cards: plans, evidence, drafts and approve buttons. While Cleared works, the desktop switches to the app it's working in. **Nothing is sent, booked or changed until you click approve.** You can also type a question.
 
-There are 10 short-pays across 5 payers, drawn from the product film. They cover six deduction types, so you can show judgment and not just automation:
+All three teammates from the film are here:
+
+**Operations: KeHE PO 1042** (Outlook → Excel → Cin7 → ShipBob → SPS)
+120 eligible cases across two warehouses → plan: split 90 East / 30 West, $420 freight → approve → the freight quote changes to $480, so Cleared pauses and asks again → releases sent and accepted, freight confirmed, packing list received → the 856 ASN is prepared in SPS → send it when pickup is confirmed.
+
+**Growth: Friday's retail launch** (Excel → OneDrive → Outlook)
+10 of 12 sampling slots confirmed, and the broker kit uses an old image → "One fix. Two replies." → review the kit update and 3 follow-up emails (toggle or edit each) → approve → replies arrive → 12/12 confirmed, and the broker has the v3 kit.
+
+**Finance: 10 short-pays across 5 payers** (QuickBooks → Outlook → OneDrive)
+Cleared checks billed vs. paid, reads the payment advice and the paperwork, decides what the evidence supports and drafts the email → approve → the reply comes in → recovered. The cases:
 
 | Invoice | Payer | Deduction | What the evidence shows | Cleared recommends |
 |---|---|---|---|---|
@@ -26,7 +28,9 @@ There are 10 short-pays across 5 payers, drawn from the product film. They cover
 | **2104** | Maple Market (film's launch) | Slotting, $750 | Matches the signed agreement | Accept (valid) |
 | **2106** | Harbor Pantry (film's launch) | Slotting, $1,000 | Agreement says $500 | Dispute $500 |
 
-In total, $3,466 is withheld across 5 payment advices. KeHE's dispute window closes first, in 9 days, so it's highlighted.
+What's live and what's preview:
+- **Live** (connect with `.env`): QuickBooks, Outlook and OneDrive, i.e. the whole Finance flow plus the Outlook payment-advice emails.
+- **Preview**: the Excel, Cin7, ShipBob and SPS screens, and the Operations and Growth emails. They aren't connected in this POC, so they're simulated and labeled "Preview" in the app.
 
 ## 1. Run it now (offline rehearsal, 2 minutes)
 
@@ -58,7 +62,7 @@ Copy `.env.example` to `.env`, then fill in each section below.
 4. Use a dedicated demo mailbox. A free Outlook.com account works with these permissions. If you have no Entra directory, a free Azure account gives you one.
 
 ### Claude (2 min)
-Put an API key from https://console.anthropic.com into `ANTHROPIC_API_KEY`. Claude reads the PDFs and drafts the emails. Without a key, a built-in parser and evidence-based templates do both, so the demo still works.
+Put an API key from https://console.anthropic.com into `ANTHROPIC_API_KEY`. Claude reads the PDFs, drafts the emails and answers typed questions that don't match a suggestion. Without a key, a built-in parser and evidence-based templates do the first two, so the demo still works.
 
 ### Optional
 - `DEDUCTIONS_TO`: where approved emails go. Use a second inbox you control and have it open on your phone, so the room sees the email arrive.
@@ -78,17 +82,15 @@ The seed script is safe to re-run. It creates:
 
 ---
 
-## 3. The 3-minute run of show
+## 3. Run of show (about 5 minutes)
 
-1. **Play the film** (2:05).
-2. "Everything in the Finance segment is live: real QuickBooks, Outlook and OneDrive, with sandbox data." Point at the totals strip: $3,466 withheld by five payers, and KeHE's window closes in 9 days.
-3. Click **Invoice 2086**, then **Investigate**. Narrate as each check fills in, and as the chips at the top light up QuickBooks, then Outlook, then OneDrive.
-4. Point at the case trail: "120 billed, 120 shipped, **?** accepted, 110 paid for. That question mark is the whole case." Click the POD to show the document next to what Cleared read.
-5. The recommendation is pre-selected. Click **Dispute** to show that the draft changes and why it's "Not advised". Switch back, edit a word, and click **Approve & send**. Show the email arriving on your phone.
-6. Reply from your phone ("Receiving shows 120 accepted, deduction reversed"), then click **Check for replies**. **$240 recovered** appears and the totals update. (Offline: **Simulate UNFI's reply**.)
-7. "Here's the film's split shipment." Open **KeHE 2079**: two PODs, East 90 + West 30, and KeHE only matched East. Then show **Walmart 2097**: the OTIF fine is only there because Walmart's own DC moved the appointment.
-8. "Not every deduction is worth fighting." Open **2099** or **2104**: the carrier really was late, or the slotting fee matches the agreement, so Cleared recommends accepting it.
-9. Click **Reset demo** before the next run. **Check all** runs every case at once, if you want to show the whole queue triaged in seconds.
+1. **Play the film** (2:05). Then: "Here's the product, in the same apps."
+2. **"What can you take off my plate?"** Click the mascot, then the button. One card shows all three teammates' work. Click **Handle it** on Operations.
+3. **Operations.** Narrate as the desktop jumps from Outlook to Excel to Cin7: "120 cases, two warehouses." Approve the $420 plan. The quote changes to $480 and Cleared pauses on its own. "It doesn't spend money you didn't approve." Approve $480 and watch the releases, freight and packing land in ShipBob, then the ASN in SPS.
+4. Click **Next: Friday's retail launch**. Cleared shows 10 of 12 slots and an old image in the broker kit. Click **Review**, edit one follow-up, approve, then **Check for replies** to get 12/12.
+5. Click **Next: UNFI's $240 short-pay**. This is the live part: real QuickBooks, Outlook and OneDrive. Show the evidence trail, open the POD, approve the email, and show it arriving on your phone. Reply from your phone and click **Check for replies** to get $240 recovered.
+6. **Context, not commands.** Open QuickBooks and click Invoice 2079: Cleared offers to explain *that* short-pay. It's the same PO 1042 from Operations, and KeHE only matched the East POD. Or open the Walmart email: it offers the Walmart fines.
+7. Click **Reset demo** in the footer before the next run.
 
 **If anything breaks on stage:** stop the server and run `npm run offline`. It's the same UI and the same flow, with no network needed.
 
@@ -97,7 +99,8 @@ The seed script is safe to re-run. It creates:
 - **Real:** OAuth to QuickBooks and Microsoft 365, reading invoices, payments, mail, attachments and files, Claude reading the PDFs, sending through Outlook, writing a QuickBooks note, reading the distributor's reply, and the audit log in `data/audit.jsonl`.
 - **Deterministic by design:** the money math, the verdict and the recommendation (`src/assess.js`, `src/cases.js`). Claude reads the PDFs and writes the drafts. Code decides what the evidence supports, and any draft that doesn't state the exact amount is rejected and rebuilt from the evidence.
 - **Sandbox data:** Fable Grove, UNFI and the documents are fictional. Say so.
-- **Not built:** UNFI's supplier portal (deductions arrive by email remittance here), the Operations and Growth teammates, and the other integrations in the film's grid.
+- **Preview (simulated):** the Operations and Growth teammates' apps: Excel, Cin7, ShipBob and SPS Commerce. The flows, approvals and state changes work, but the data is demo data and nothing reaches those systems.
+- **Not built:** UNFI's supplier portal (deductions arrive by email remittance here), and the other integrations listed under Connections → Next.
 
 ## Project map
 
@@ -111,7 +114,11 @@ src/connectors/           quickbooks.js, microsoft.js (live), offline.js (fixtur
 scripts/seed.js           Loads the demo scenario into your accounts
 scripts/selftest.mjs      npm test: runs the live code paths against fake QuickBooks + Graph
 scripts/make_docs.py      Regenerates the PDFs from fixtures/scenarios.json
-public/                   The interactive workspace UI
+public/js/main.js         Desktop boot, context-aware suggestions, wiring
+public/js/apps.js         The 7 desktop apps; each reports what you're looking at
+public/js/flows.js        What Cleared does: Operations, Growth and Finance flows as clickable cards
+public/js/core.js         State, chat panel engine, document drawer
+public/js/data.js         Operations + Growth demo data (from the film)
 ```
 
 Tokens, case state, seed state and the audit log live in `./data` (gitignored). Use **Reset demo** in the footer to clear the cases between rehearsals. Delete `data/quickbooks.json` or `data/microsoft.json` to force a fresh connection.
